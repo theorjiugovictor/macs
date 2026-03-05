@@ -71,7 +71,7 @@ from personas import build_macs
 from scenarios import ScenarioRunner
 from ws_server import start_ws_server
 from verifier import Verifier
-from intake_server import start_intake_server, get_local_ip, INTAKE_PORT
+from intake_server import start_intake_server, set_control_agents, get_local_ip, INTAKE_PORT
 from world_state import start_world_state
 from external_feeds import ExternalFeedRunner
 
@@ -231,6 +231,7 @@ def main():
     local_ip = get_local_ip()
     print(f"  Field Reports: http://{local_ip}:{INTAKE_PORT}/")
     print(f"  QR Code:       http://{local_ip}:{INTAKE_PORT}/qr")
+    print(f"  Control API:   http://{local_ip}:{INTAKE_PORT}/control")
 
     # Start world state manager (shared operational picture)
     world_state_mgr = start_world_state(args.scenario)
@@ -247,6 +248,7 @@ def main():
     swarm = build_macs(mock_mode=mock_mode, api_key=anthropic_key,
                        google_api_key=google_key, tick_interval=args.tick)
     agent_map = {a.agent_id: a for a in swarm}
+    set_control_agents(agent_map)
     for agent in swarm:
         agent.start()
         time.sleep(0.3)  # stagger starts

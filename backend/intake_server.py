@@ -14,10 +14,12 @@ Endpoints:
 import io
 import json
 import logging
+import os
 import socket
 import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from urllib.parse import urlparse
+from typing import Optional
 
 from shared_state import bulletin
 from verifier import Verifier
@@ -25,6 +27,8 @@ from verifier import Verifier
 logger = logging.getLogger(__name__)
 
 INTAKE_PORT = 8766
+CONTROL_TOKEN = os.getenv("MACS_CONTROL_TOKEN", "")
+CONTROL_AGENTS = {}
 
 # ── HTML ──────────────────────────────────────────────────────────────────────
 
@@ -159,12 +163,12 @@ def generate_qr_png(url: str):
     try:
         import qrcode
         qr = qrcode.QRCode(box_size=8, border=4,
-                           error_correction=qrcode.constants.ERROR_CORRECT_M)
+                           error_correction=0)
         qr.add_data(url)
         qr.make(fit=True)
         img = qr.make_image(fill_color="#e5e7eb", back_color="#0d1117")
         buf = io.BytesIO()
-        img.save(buf, format="PNG")
+        img.save(buf, "PNG")
         return buf.getvalue()
     except Exception:
         return None
@@ -176,7 +180,7 @@ SEVERITY_ORDER = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3, "INFO": 4, "U
 
 
 class IntakeHandler(BaseHTTPRequestHandler):
-    verifier: Verifier = None
+    verifier: Optional[Verifier] = None
 
     def log_message(self, fmt, *args):
         pass  # suppress default stdout log
@@ -209,7 +213,13 @@ class IntakeHandler(BaseHTTPRequestHandler):
     # ── POST ──────────────────────────────────────────────────────────────────
 
     def do_POST(self):
-        if urlparse(self.path).path != "/report":
+        path = urlparse(self.path).path
+
+        if path == "/control":
+            self._handle_control()
+            return
+
+        if path != "/report":
             self._send(404, "text/plain", b"Not found")
             return
 
@@ -228,6 +238,10 @@ class IntakeHandler(BaseHTTPRequestHandler):
         if not message:
             self._json({"accepted": False, "reason": "Empty message"})
             return
+
+        if self.verifier is None:
+          self._json({"accepted": False, "reason": "Verifier unavailable"})
+          return
 
         context = bulletin.snapshot(max_events=20)
         result  = self.verifier.verify(message, location, context)
@@ -269,6 +283,63 @@ class IntakeHandler(BaseHTTPRequestHandler):
             "confidence": result["confidence"],
         })
 
+    def _handle_control(self):
+        length = int(self.headers.get("Content-Length", 0))
+        body = self.rfile.read(length)
+        try:
+            data = json.loads(body or b"{}")
+        except json.JSONDecodeError:
+            self._json({"ok": False, "reason": "Invalid JSON"})
+            return
+
+        token = str(data.get("token", ""))
+        if CONTROL_TOKEN and token != CONTROL_TOKEN:
+            self._json({"ok": False, "reason": "Unauthorized"})
+            return
+
+        action = str(data.get("action", "")).strip().lower()
+        agent_id = str(data.get("agent", "")).strip().upper()
+
+        if action == "list":
+            self._json({
+                "ok": True,
+                "agents": sorted(list(CONTROL_AGENTS.keys())),
+                "online": sorted([k for k, a in CONTROL_AGENTS.items() if a.is_alive()]),
+            })
+            return
+
+        if action not in ("kill", "revive"):
+            self._json({"ok": False, "reason": "Unsupported action. Use kill|revive|list"})
+            return
+        if agent_id not in CONTROL_AGENTS:
+            self._json({"ok": False, "reason": f"Unknown agent: {agent_id}"})
+            return
+
+        agent = CONTROL_AGENTS[agent_id]
+        if action == "kill":
+            agent.stop()
+            bulletin.post(
+                source="SYSTEM",
+                event_type="CONTROL_ACTION",
+                domain="SYSTEM",
+                severity="INFO",
+                payload={"message": f"Remote control killed {agent_id}", "action": "kill", "agent": agent_id},
+                tags=["control"],
+            )
+            self._json({"ok": True, "action": "kill", "agent": agent_id})
+            return
+
+        agent.start()
+        bulletin.post(
+            source="SYSTEM",
+            event_type="CONTROL_ACTION",
+            domain="SYSTEM",
+            severity="INFO",
+            payload={"message": f"Remote control revived {agent_id}", "action": "revive", "agent": agent_id},
+            tags=["control"],
+        )
+        self._json({"ok": True, "action": "revive", "agent": agent_id})
+
     def do_OPTIONS(self):
         self.send_response(200)
         self.send_header("Access-Control-Allow-Origin", "*")
@@ -281,7 +352,7 @@ class IntakeHandler(BaseHTTPRequestHandler):
     def _send(self, code: int, ctype: str, body: bytes):
         self.send_response(code)
         self.send_header("Content-Type", ctype)
-        self.send_header("Content-Length", len(body))
+        self.send_header("Content-Length", str(len(body)))
         self.send_header("Access-Control-Allow-Origin", "*")
         self.end_headers()
         self.wfile.write(body)
@@ -303,6 +374,12 @@ def start_intake_server(verifier: Verifier) -> threading.Thread:
     t = threading.Thread(target=_run, daemon=True, name="intake-server")
     t.start()
     return t
+
+
+def set_control_agents(agent_map: dict):
+    """Register running agents for /control endpoint actions."""
+    CONTROL_AGENTS.clear()
+    CONTROL_AGENTS.update(agent_map or {})
 
 
 if __name__ == "__main__":

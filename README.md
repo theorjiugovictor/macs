@@ -57,6 +57,18 @@ world            — print shared world state snapshot
 quit             — stop MACS
 ```
 
+## Remote Control API (service mode)
+
+When running as a daemon/systemd (no interactive CLI), use:
+
+```bash
+curl -X POST http://<host>:8766/control -H 'Content-Type: application/json' -d '{"action":"kill","agent":"MEDIC"}'
+curl -X POST http://<host>:8766/control -H 'Content-Type: application/json' -d '{"action":"revive","agent":"MEDIC"}'
+curl -X POST http://<host>:8766/control -H 'Content-Type: application/json' -d '{"action":"list"}'
+```
+
+Optional auth: set `MACS_CONTROL_TOKEN` and pass `"token":"..."` in JSON.
+
 ## Scenarios
 
 ```bash
