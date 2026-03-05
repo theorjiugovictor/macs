@@ -48,6 +48,7 @@ GOOGLE_API_KEY=... GEMINI_MODEL=gemini-3.1-flash-lite-preview docker compose up
 kill MEDIC       — simulate MAC failure (live demo moment)
 revive MEDIC     — bring MAC back online
 state            — print bulletin board stats
+world            — print shared world state snapshot
 quit             — stop MACS
 ```
 

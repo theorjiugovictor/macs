@@ -10,8 +10,8 @@ Usage:
 Controls (live, type in terminal):
     kill <MAC>        e.g. kill MEDIC     — simulates MAC failure
     revive <MAC>      e.g. revive MEDIC   — brings MAC back online
-    inject            — inject next crisis event manually
     state             — print bulletin board stats
+    world             — print shared world state snapshot
     quit              — stop everything
 """
 
@@ -72,6 +72,7 @@ from scenarios import ScenarioRunner
 from ws_server import start_ws_server
 from verifier import Verifier
 from intake_server import start_intake_server, get_local_ip, INTAKE_PORT
+from world_state import start_world_state
 
 logging.basicConfig(
     level=logging.INFO,
@@ -112,9 +113,9 @@ def print_event(event):
     )
 
 
-def run_cli(agents: dict, runner: ScenarioRunner):
+def run_cli(agents: dict, runner: ScenarioRunner, world_state_mgr=None):
     """Simple CLI for live demo control."""
-    print("\n\033[1mMACS CLI — commands: kill <MAC> | revive <MAC> | state | inject | quit\033[0m\n")
+    print("\n\033[1mMACS CLI — commands: kill <MAC> | revive <MAC> | state | world | quit\033[0m\n")
     while True:
         try:
             cmd = input("> ").strip().lower()
@@ -151,6 +152,18 @@ def run_cli(agents: dict, runner: ScenarioRunner):
             dead  = [id for id, a in agents.items() if not a.is_alive()]
             print(f"  MACs online  : {', '.join(alive) or 'none'}")
             print(f"  MACs offline : {', '.join(dead) or 'none'}\n")
+        elif parts[0] == "world":
+            if world_state_mgr is None:
+                print("World state manager not available.")
+            else:
+                snap = world_state_mgr.snapshot()
+                print(f"\n{BOLD}World State:{RESET}")
+                print(f"  Scenario : {snap.get('scenario')}")
+                print(f"  Medical  : {snap.get('medical')}")
+                print(f"  Power    : {snap.get('power')}")
+                print(f"  Comms    : {snap.get('comms')}")
+                print(f"  Logistics: {snap.get('logistics')}")
+                print(f"  Evac     : {snap.get('evacuation')}\n")
         else:
             print("Unknown command.")
 
@@ -214,6 +227,9 @@ def main():
     print(f"  Field Reports: http://{local_ip}:{INTAKE_PORT}/")
     print(f"  QR Code:       http://{local_ip}:{INTAKE_PORT}/qr")
 
+    # Start world state manager (shared operational picture)
+    world_state_mgr = start_world_state(args.scenario)
+
     print(f"\n{BOLD}Deploying MACs...{RESET}\n")
 
     # Build and start MACs
@@ -233,7 +249,7 @@ def main():
     # Run CLI if interactive; otherwise block until SIGTERM/SIGINT
     try:
         if sys.stdin.isatty():
-            run_cli(agent_map, runner)
+            run_cli(agent_map, runner, world_state_mgr=world_state_mgr)
         else:
             # Running as a daemon (systemd, nohup, etc.) — wait for signal
             import signal
