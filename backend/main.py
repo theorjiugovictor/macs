@@ -228,9 +228,17 @@ def main():
 
     print(f"\n{BOLD}MACS active. Scenario '{args.scenario}' running.{RESET}\n")
 
-    # Run CLI (blocking)
+    # Run CLI if interactive; otherwise block until SIGTERM/SIGINT
     try:
-        run_cli(agent_map, runner)
+        if sys.stdin.isatty():
+            run_cli(agent_map, runner)
+        else:
+            # Running as a daemon (systemd, nohup, etc.) — wait for signal
+            import signal
+            stop_event = threading.Event()
+            signal.signal(signal.SIGTERM, lambda *_: stop_event.set())
+            signal.signal(signal.SIGINT,  lambda *_: stop_event.set())
+            stop_event.wait()
     finally:
         runner.stop()
         for agent in swarm:

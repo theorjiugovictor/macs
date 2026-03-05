@@ -5,7 +5,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 
-const WS_URL = 'ws://localhost:8765'
+const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:8765'
 const MAX_EVENTS = 300
 
 export function useSwarm() {
