@@ -18,6 +18,50 @@ Controls (live, type in terminal):
 import argparse
 import logging
 import os
+import ssl
+
+# Fix macOS SSL certificate verification for all threads/HTTP clients.
+# Layer 1: patch ssl.create_default_context + _create_default_https_context
+#           (covers urllib, http.client, requests).
+# Layer 2: patch httpx.Client / AsyncClient.__init__
+#           (covers google-genai SDK which uses httpx internally).
+# NOTE: module-level names _SSL_CAFILE / _orig_* must NOT be deleted —
+#       the closures look them up in this module's globals at call time.
+try:
+    import certifi as _certifi_mod
+    _SSL_CAFILE = _certifi_mod.where()          # keep alive for closures below
+    _orig_create_default_context = ssl.create_default_context
+
+    def _ssl_certifi_context(*args, **kwargs):
+        if not (kwargs.get("cafile") or kwargs.get("capath") or kwargs.get("cadata")):
+            kwargs["cafile"] = _SSL_CAFILE
+        return _orig_create_default_context(*args, **kwargs)
+
+    ssl.create_default_context = _ssl_certifi_context
+    ssl._create_default_https_context = lambda: _ssl_certifi_context()
+
+    # Layer 2 — httpx (imported transitively by google-genai)
+    try:
+        import httpx as _httpx_mod
+        _orig_httpx_client_init = _httpx_mod.Client.__init__
+        _orig_httpx_async_init  = _httpx_mod.AsyncClient.__init__
+
+        def _httpx_certifi_init(self, *args, **kwargs):
+            if kwargs.get("verify") is None or kwargs.get("verify") is True:
+                kwargs["verify"] = _SSL_CAFILE
+            _orig_httpx_client_init(self, *args, **kwargs)
+
+        def _httpx_certifi_async_init(self, *args, **kwargs):
+            if kwargs.get("verify") is None or kwargs.get("verify") is True:
+                kwargs["verify"] = _SSL_CAFILE
+            _orig_httpx_async_init(self, *args, **kwargs)
+
+        _httpx_mod.Client.__init__      = _httpx_certifi_init
+        _httpx_mod.AsyncClient.__init__ = _httpx_certifi_async_init
+    except (ImportError, AttributeError):
+        pass   # httpx not available — ssl layer still applies
+except ImportError:
+    pass
 import sys
 import time
 import threading
@@ -26,6 +70,8 @@ from shared_state import bulletin
 from personas import build_macs
 from scenarios import ScenarioRunner
 from ws_server import start_ws_server
+from verifier import Verifier
+from intake_server import start_intake_server, get_local_ip, INTAKE_PORT
 
 logging.basicConfig(
     level=logging.INFO,
@@ -111,8 +157,9 @@ def main():
     parser = argparse.ArgumentParser(description="MACS — Multi-Agent Crisis Response System")
     parser.add_argument("--scenario", default="cascade", help="Scenario key (cascade, blackout, displacement)")
     parser.add_argument("--list-scenarios", action="store_true", help="List available scenarios")
-    parser.add_argument("--live", action="store_true", help="Use real Claude agents (requires --api-key)")
+    parser.add_argument("--live", action="store_true", help="Use real LLM agents (requires an API key)")
     parser.add_argument("--api-key", default=os.getenv("ANTHROPIC_API_KEY"), help="Anthropic API key")
+    parser.add_argument("--google-api-key", default=os.getenv("GOOGLE_API_KEY"), help="Google/Gemini API key")
     parser.add_argument("--tick", type=float, default=5.0, help="Agent tick interval in seconds")
     parser.add_argument("--no-ws", action="store_true", help="Disable WebSocket server")
     args = parser.parse_args()
@@ -123,17 +170,29 @@ def main():
             print(f"               {s['description'][:80]}...")
         return
 
-    mock_mode = not args.live
-    api_key   = args.api_key if args.live else None
+    # Auto-enable live mode if any API key is available in the environment
+    google_key = args.google_api_key
+    anthropic_key = args.api_key
+    if not args.live and (google_key or anthropic_key):
+        args.live = True
 
-    if args.live and not api_key:
-        print("ERROR: --live requires ANTHROPIC_API_KEY env var or --api-key flag")
+    mock_mode = not args.live
+
+    if args.live and not google_key and not anthropic_key:
+        print("ERROR: --live requires GOOGLE_API_KEY or ANTHROPIC_API_KEY env var")
         sys.exit(1)
+
+    if mock_mode:
+        mode_str = "🔧 Mock"
+    elif google_key:
+        mode_str = "🤖 Live (Gemini 2.0 Flash)"
+    else:
+        mode_str = "🤖 Live (Claude)"
 
     print(f"\n{BOLD}{'='*60}")
     print("  MACS — Multi-Agent Crisis Response System")
     print(f"{'='*60}{RESET}")
-    print(f"  Mode     : {'🤖 Live (Claude)' if not mock_mode else '🔧 Mock'}")
+    print(f"  Mode     : {mode_str}")
     print(f"  Scenario : {args.scenario}")
     print(f"  Tick     : {args.tick}s\n")
 
@@ -145,10 +204,19 @@ def main():
         start_ws_server()
         print("  Dashboard: ws://localhost:8765")
 
+    # Start citizen intake server
+    verifier = Verifier(mock_mode=mock_mode, anthropic_api_key=anthropic_key,
+                        google_api_key=google_key)
+    start_intake_server(verifier)
+    local_ip = get_local_ip()
+    print(f"  Field Reports: http://{local_ip}:{INTAKE_PORT}/")
+    print(f"  QR Code:       http://{local_ip}:{INTAKE_PORT}/qr")
+
     print(f"\n{BOLD}Deploying MACs...{RESET}\n")
 
     # Build and start MACs
-    swarm = build_macs(mock_mode=mock_mode, api_key=api_key, tick_interval=args.tick)
+    swarm = build_macs(mock_mode=mock_mode, api_key=anthropic_key,
+                       google_api_key=google_key, tick_interval=args.tick)
     agent_map = {a.agent_id: a for a in swarm}
     for agent in swarm:
         agent.start()

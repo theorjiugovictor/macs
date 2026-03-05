@@ -4,3 +4,6 @@ __pycache__/
 .env
 dist/
 .DS_Store
+.claude/
+backend/.venv/
+=0.8.0

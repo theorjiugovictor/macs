@@ -50,6 +50,8 @@ export function useSwarm() {
   }, [])
 
   useEffect(() => {
+    let dead = false
+
     function connect() {
       const ws = new WebSocket(WS_URL)
       wsRef.current = ws
@@ -62,13 +64,17 @@ export function useSwarm() {
         const data = JSON.parse(msg.data)
 
         if (data.type === 'history') {
-          // Full history on connect
-          setEvents(data.events.slice(-MAX_EVENTS))
+          setEvents(prev => {
+            const seen = new Set(prev.map(e => e.id))
+            const fresh = data.events.filter(e => !seen.has(e.id))
+            const merged = [...prev, ...fresh]
+            return merged.slice(-MAX_EVENTS)
+          })
           data.events.forEach(processEvent)
         } else {
-          // Single new event
           processEvent(data)
           setEvents(prev => {
+            if (prev.some(e => e.id === data.id)) return prev
             const next = [...prev, data]
             return next.length > MAX_EVENTS ? next.slice(-MAX_EVENTS) : next
           })
@@ -77,8 +83,7 @@ export function useSwarm() {
 
       ws.onclose = () => {
         setConnected(false)
-        // Reconnect after 2s
-        setTimeout(connect, 2000)
+        if (!dead) setTimeout(connect, 2000)
       }
 
       ws.onerror = () => {
@@ -88,6 +93,7 @@ export function useSwarm() {
 
     connect()
     return () => {
+      dead = true
       if (wsRef.current) wsRef.current.close()
     }
   }, [processEvent])

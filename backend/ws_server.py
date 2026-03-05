@@ -43,14 +43,14 @@ def start_ws_server():
     loop = asyncio.new_event_loop()
     bulletin.set_ws_loop(loop)
 
+    async def _serve():
+        async with websockets.serve(_handler, WS_HOST, WS_PORT):
+            logger.info(f"WebSocket server on ws://{WS_HOST}:{WS_PORT}")
+            await asyncio.Future()  # run forever
+
     def _run():
         asyncio.set_event_loop(loop)
-        server = loop.run_until_complete(
-            websockets.serve(_handler, WS_HOST, WS_PORT)
-        )
-        logger.info(f"WebSocket server on ws://{WS_HOST}:{WS_PORT}")
-        loop.run_forever()
-        server.close()
+        loop.run_until_complete(_serve())
 
     thread = threading.Thread(target=_run, daemon=True, name="ws-server")
     thread.start()

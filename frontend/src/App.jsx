@@ -30,6 +30,8 @@ const DOMAIN_ICON = {
   SYSTEM:     '🌐',
 }
 
+const FIELD_REPORT_COLOR = '#4ade80'
+
 const AGENT_IDS = ['MEDIC', 'LOGISTICS', 'POWER', 'COMMS', 'EVAC']
 
 // ── Sub-components ────────────────────────────────────────────────────────────
@@ -101,8 +103,9 @@ function AgentCard({ id, data }) {
 
 function EventRow({ event }) {
   const color = SEVERITY_COLOR[event.severity] || '#6b7280'
-  const domainColor = DOMAIN_COLOR[event.domain] || '#64748b'
-  const icon = DOMAIN_ICON[event.domain] || '●'
+  const isFieldReport = event.source === 'FIELD_REPORT'
+  const domainColor = isFieldReport ? FIELD_REPORT_COLOR : (DOMAIN_COLOR[event.domain] || '#64748b')
+  const icon = isFieldReport ? '📱' : (DOMAIN_ICON[event.domain] || '●')
   const isAction = event.event_type === 'ACTION_TAKEN'
   const isSystem = event.source === 'SYSTEM'
   const isCritical = event.severity === 'CRITICAL'
@@ -117,7 +120,8 @@ function EventRow({ event }) {
       gap: 8,
       padding: '5px 10px',
       borderBottom: '1px solid #1f2937',
-      background: isCritical ? '#1c0a0a' : isAction ? '#0f1922' : 'transparent',
+      background: isCritical ? '#1c0a0a' : isFieldReport ? '#0a1a0f' : isAction ? '#0f1922' : 'transparent',
+      borderLeft: isFieldReport ? `2px solid ${FIELD_REPORT_COLOR}` : 'none',
       animation: 'fadeIn 0.3s ease',
     }}>
       <span style={{ color: '#4b5563', fontSize: 11 }}>{ts}</span>
@@ -128,7 +132,7 @@ function EventRow({ event }) {
         textOverflow: 'ellipsis',
         whiteSpace: 'nowrap',
       }}>
-        {icon} {event.source}
+        {icon} {isFieldReport ? 'CITIZEN' : event.source}
       </span>
       <span style={{
         fontSize: 10,
@@ -145,7 +149,7 @@ function EventRow({ event }) {
         {event.severity}
       </span>
       <span style={{
-        color: isSystem ? '#f59e0b' : isAction ? '#e5e7eb' : '#9ca3af',
+        color: isFieldReport ? '#86efac' : isSystem ? '#f59e0b' : isAction ? '#e5e7eb' : '#9ca3af',
         overflow: 'hidden',
         textOverflow: 'ellipsis',
         whiteSpace: 'nowrap',
@@ -214,11 +218,13 @@ export default function App() {
   const stats = useMemo(() => {
     const byDomain = {}
     const bySeverity = { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0, INFO: 0 }
+    let fieldReports = 0
     events.forEach(e => {
       byDomain[e.domain] = (byDomain[e.domain] || 0) + 1
       if (e.severity in bySeverity) bySeverity[e.severity]++
+      if (e.source === 'FIELD_REPORT') fieldReports++
     })
-    return { byDomain, bySeverity, total: events.length }
+    return { byDomain, bySeverity, total: events.length, fieldReports }
   }, [events])
 
   const criticalCount = stats.bySeverity.CRITICAL
@@ -297,6 +303,25 @@ export default function App() {
               </div>
             ))}
           </div>
+
+          {/* Field reports */}
+          {stats.fieldReports > 0 && (
+            <div style={{
+              marginTop: 16,
+              padding: '8px 10px',
+              background: '#0a1a0f',
+              border: `1px solid ${FIELD_REPORT_COLOR}33`,
+              borderRadius: 6,
+            }}>
+              <div style={{ color: '#6b7280', fontSize: 10, marginBottom: 4, letterSpacing: 1 }}>
+                FIELD INTEL
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
+                <span style={{ color: FIELD_REPORT_COLOR }}>📱 Citizen Reports</span>
+                <span style={{ color: '#9ca3af' }}>{stats.fieldReports}</span>
+              </div>
+            </div>
+          )}
         </aside>
 
         {/* Main — Event Feed */}

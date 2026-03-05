@@ -110,9 +110,11 @@ Act when: routes become unsafe (reroute), shelters exceed 90% capacity (open ove
 """
 
 
-def build_macs(mock_mode: bool = True, api_key: str = None, tick_interval: float = 5.0) -> list[MAC]:
+def build_macs(mock_mode: bool = True, api_key: str = None,
+               google_api_key: str = None, tick_interval: float = 5.0) -> list[MAC]:
     """Instantiate all 5 MACs with shared config."""
-    kwargs = dict(mock_mode=mock_mode, anthropic_api_key=api_key, tick_interval=tick_interval)
+    kwargs = dict(mock_mode=mock_mode, anthropic_api_key=api_key,
+                  google_api_key=google_api_key, tick_interval=tick_interval)
     return [
         MedicAgent(**kwargs),
         LogisticsAgent(**kwargs),

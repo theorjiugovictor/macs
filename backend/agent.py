@@ -24,12 +24,19 @@ from shared_state import bulletin, Event
 
 logger = logging.getLogger(__name__)
 
-# ── Try importing Anthropic SDK; fall back gracefully ────────────────────────
+# ── Try importing LLM SDKs; fall back gracefully ─────────────────────────────
 try:
     import anthropic
     _ANTHROPIC_AVAILABLE = True
 except ImportError:
     _ANTHROPIC_AVAILABLE = False
+
+try:
+    from google import genai as google_genai
+    from google.genai import types as google_types
+    _GOOGLE_AVAILABLE = True
+except ImportError:
+    _GOOGLE_AVAILABLE = False
 
 
 MOCK_RESPONSES = {
@@ -60,6 +67,102 @@ MOCK_RESPONSES = {
     ],
 }
 
+# Cross-agent reactive responses: keyed by (agent_id, triggering_domain).
+# These are chosen when an agent sees a HIGH/CRITICAL post from another MAC,
+# making it appear that agents are reading and responding to each other.
+REACTIVE_RESPONSES = {
+    "MEDIC": {
+        "LOGISTICS": [
+            "Blood convoy from LOGISTICS confirmed at triage B-7. Surgical team activated — ICU capacity extended 30%.",
+            "Medical cargo received. Rerouting critical patients from overflow ward to field station.",
+        ],
+        "POWER": [
+            "ICU and OR switched to generator backup. Blood banks stable. Requesting LOGISTICS fuel resupply in 6 hours.",
+            "Operating theatre running on emergency power per POWER alert. Proceeding with critical surgeries.",
+        ],
+        "COMMS": [
+            "Medical team dispatched to grid C-9 per COMMS distress signal. Requesting EVAC casualty transport.",
+            "Coordinating with external medical NGOs via COMMS channel. Specialist surgical team ETA T+2h.",
+        ],
+        "EVACUATION": [
+            "Field medics deployed to shelter intake points per EVAC report. Triage protocol active.",
+            "Casualty transport integrated with EVAC Route Bravo. Mobile surgical unit repositioned to junction 4.",
+        ],
+    },
+    "LOGISTICS": {
+        "MEDICAL": [
+            "Blood supply convoy fast-tracked — clearing civilian aid lane. Medical cargo ETA triage B-7: 35 min.",
+            "MEDIC blood shortage confirmed. Rerouting food convoy to secondary distribution; medics resupplied.",
+        ],
+        "POWER": [
+            "Emergency fuel convoy deployed to generator sites via Route Bravo. ETA 40 min — 6,000 L capacity.",
+            "Fuel reserves reallocated: 60% critical infrastructure, 40% medical per POWER request. Resupply cycle updated.",
+        ],
+        "COMMS": [
+            "Convoy routes uploaded to COMMS mesh network. Avoiding signal dead zones — real-time traffic monitoring active.",
+            "Aid manifests broadcast to field teams via COMMS relay. Distribution synchronized across 3 checkpoints.",
+        ],
+        "EVACUATION": [
+            "Supply chain adjusted for EVAC overflow shelter. Aid distribution point relocated to university gymnasium.",
+            "Water and food pre-positioned at secondary shelter per EVAC capacity report. Civilian intake flow coordinated.",
+        ],
+    },
+    "POWER": {
+        "MEDICAL": [
+            "Hospital grid priority elevated. Shedding residential sector load — surgical suite and ICU at full power.",
+            "Medical facility generators topped up. Rolling blackout revised to exclude all health infrastructure.",
+        ],
+        "LOGISTICS": [
+            "Fuel convoy from LOGISTICS confirmed. Pre-positioning portable generator at triage site B-7.",
+            "Refueling schedule synchronized with LOGISTICS convoy routes. Generator runtime extended to 18 hours.",
+        ],
+        "COMMS": [
+            "COMMS relay nodes added to priority grid list. Generator rerouted — mesh network coverage maintained.",
+            "Backup power for all COMMS mesh nodes activated. Infrastructure protected from rolling blackout.",
+        ],
+        "EVACUATION": [
+            "Evacuation corridors excluded from rolling blackout per EVAC route update. Emergency lighting on Route Bravo.",
+            "Shelter power circuits isolated from grid failures. Dedicated generator confirmed for civilian intake zones.",
+        ],
+    },
+    "COMMS": {
+        "MEDICAL": [
+            "Field station coordinates broadcast on all channels. NGO medical teams redirected to triage B-7.",
+            "MEDIC casualty report relayed to external aid networks. Requesting specialist surgical team inbound.",
+        ],
+        "LOGISTICS": [
+            "Convoy manifests distributed to all field checkpoints via mesh. Supply vehicles tracked in real time.",
+            "Aid distribution broadcast live on civilian radio. Queue management information active.",
+        ],
+        "POWER": [
+            "Backup radio active for POWER blackout sectors. Emergency channel maintained on battery relay.",
+            "Grid failure map distributed to all MACs. COMMS links rerouted around failed sectors — coverage 85%.",
+        ],
+        "EVACUATION": [
+            "Evacuation order live on all channels — 4 languages. Estimated 2,000 civilians now en route.",
+            "Real-time shelter capacity broadcast to civilians per EVAC update. Route guidance active.",
+        ],
+    },
+    "EVAC": {
+        "MEDICAL": [
+            "Bus convoy diverted via triage B-7 per MEDIC request. Casualty pickup integrated into evacuation route.",
+            "Ambulance corridor cleared on Route Alpha. Civilian buses rerouted to avoid medical traffic at B-7.",
+        ],
+        "LOGISTICS": [
+            "Civilian flow redirected through LOGISTICS aid distribution point. Convoy deconfliction active.",
+            "Evacuation buses refueled at LOGISTICS depot. Fleet operational — 12 buses confirmed en route.",
+        ],
+        "POWER": [
+            "Night convoy equipped with emergency lighting. Avoiding POWER blackout sectors on revised route.",
+            "Overflow shelter backup power confirmed via POWER — maintaining civilian intake through grid failure.",
+        ],
+        "COMMS": [
+            "Bus dispatched to grid C-9 per COMMS distress signal. ETA 20 minutes — 50-person capacity.",
+            "Civilian COMMS broadcast integrated with EVAC routing app. Shelter capacity updated every 5 minutes.",
+        ],
+    },
+}
+
 
 class MAC(ABC):
     """
@@ -74,6 +177,7 @@ class MAC(ABC):
         tick_interval: float = 5.0,
         mock_mode: bool = False,
         anthropic_api_key: str = None,
+        google_api_key: str = None,
     ):
         self.agent_id = agent_id
         self.domain = domain
@@ -84,11 +188,16 @@ class MAC(ABC):
         self._last_event_id: str = None
         self._tick_count = 0
         self._mock_response_index = 0
+        self._client  = None  # Anthropic
+        self._gclient = None  # Gemini
 
-        if not mock_mode and _ANTHROPIC_AVAILABLE and anthropic_api_key:
-            self._client = anthropic.Anthropic(api_key=anthropic_api_key)
-        else:
-            self._client = None
+        if not mock_mode:
+            if google_api_key and _GOOGLE_AVAILABLE:
+                self._gclient = google_genai.Client(api_key=google_api_key)
+                logger.info(f"[{agent_id}] using Gemini 2.0 Flash")
+            elif anthropic_api_key and _ANTHROPIC_AVAILABLE:
+                self._client = anthropic.Anthropic(api_key=anthropic_api_key)
+                logger.info(f"[{agent_id}] using Claude")
 
     # ── Abstract interface ───────────────────────────────────────────────────
 
@@ -184,21 +293,20 @@ class MAC(ABC):
         }, indent=2)
 
     def _reason(self, context: str, relevant_events: list) -> Optional[dict]:
-        """
-        Ask the LLM whether to take action. Returns a decision dict or None.
-        Falls back to mock if no client available.
-        """
-        if self._client is None or self.mock_mode:
-            return self._mock_reason()
+        """Route to Gemini, Claude, or mock depending on what's configured."""
+        if self._gclient:
+            return self._gemini_reason(context, relevant_events)
+        if self._client:
+            return self._claude_reason(context, relevant_events)
+        return self._mock_reason(relevant_events)
 
+    def _build_user_prompt(self, context: str, relevant_events: list) -> str:
         relevant_summary = json.dumps(
             [{"type": e.event_type, "domain": e.domain, "severity": e.severity,
               "payload": e.payload} for e in relevant_events],
             indent=2,
         )
-
-        user_prompt = f"""
-Current situation (shared bulletin board state):
+        return f"""Current situation (shared bulletin board state):
 {context}
 
 New events since last tick:
@@ -210,16 +318,36 @@ If yes, respond with a JSON object:
   "action": true,
   "event_type": "ACTION_TAKEN",
   "severity": "HIGH|MEDIUM|LOW",
-  "message": "what you are doing",
+  "message": "what you are doing (be specific: locations, quantities, timeframes)",
   "details": {{}}
 }}
 If no action needed:
 {{
   "action": false
 }}
-Respond ONLY with valid JSON.
-"""
+Respond ONLY with valid JSON. No markdown."""
 
+    def _gemini_reason(self, context: str, relevant_events: list) -> Optional[dict]:
+        """Reason using Gemini 2.0 Flash."""
+        user_prompt = self._build_user_prompt(context, relevant_events)
+        try:
+            response = self._gclient.models.generate_content(
+                model="gemini-2.0-flash",
+                contents=user_prompt,
+                config=google_types.GenerateContentConfig(
+                    system_instruction=self.persona_prompt,
+                    response_mime_type="application/json",
+                    max_output_tokens=500,
+                ),
+            )
+            return json.loads(response.text)
+        except Exception as e:
+            logger.warning(f"[{self.agent_id}] Gemini error: {e} — using mock")
+            return self._mock_reason(relevant_events)
+
+    def _claude_reason(self, context: str, relevant_events: list) -> Optional[dict]:
+        """Reason using Claude (Anthropic)."""
+        user_prompt = self._build_user_prompt(context, relevant_events)
         try:
             response = self._client.messages.create(
                 model="claude-opus-4-6",
@@ -228,19 +356,50 @@ Respond ONLY with valid JSON.
                 messages=[{"role": "user", "content": user_prompt}],
             )
             text = response.content[0].text.strip()
-            # Strip markdown code blocks if present
             if text.startswith("```"):
                 text = text.split("```")[1]
                 if text.startswith("json"):
                     text = text[4:]
             return json.loads(text)
         except Exception as e:
-            logger.warning(f"[{self.agent_id}] LLM error: {e} — using mock")
-            return self._mock_reason()
+            logger.warning(f"[{self.agent_id}] Claude error: {e} — using mock")
+            return self._mock_reason(relevant_events)
 
-    def _mock_reason(self) -> Optional[dict]:
-        """Return a pre-scripted response for demo/testing."""
-        responses = MOCK_RESPONSES.get(self.domain, [])
+    def _mock_reason(self, relevant_events: list = None) -> Optional[dict]:
+        """Return a context-aware scripted response for demo/testing.
+
+        Prefers a reactive response when another MAC has recently posted
+        something relevant, making agents appear to coordinate with each other.
+        Falls back to the default cycling responses otherwise.
+        """
+        # Try to react to the most recent HIGH/CRITICAL post from another MAC
+        if relevant_events:
+            # Collect unique source domains from other agents (most recent first)
+            seen = set()
+            candidates = []
+            for e in reversed(relevant_events):
+                if (e.source != self.agent_id
+                        and e.event_type == "ACTION_TAKEN"
+                        and e.domain not in seen):
+                    seen.add(e.domain)
+                    candidates.append(e.domain)
+
+            reactions = REACTIVE_RESPONSES.get(self.agent_id, {})
+            for domain in candidates:
+                options = reactions.get(domain)
+                if options:
+                    msg = options[self._mock_response_index % len(options)]
+                    self._mock_response_index += 1
+                    return {
+                        "action": True,
+                        "event_type": "ACTION_TAKEN",
+                        "severity": "HIGH",
+                        "message": msg,
+                        "details": {"mock": True, "reacting_to": domain},
+                    }
+
+        # Fall back to default cyclic responses
+        responses = MOCK_RESPONSES.get(self.agent_id, [])
         if not responses:
             return None
         msg = responses[self._mock_response_index % len(responses)]
