@@ -172,6 +172,19 @@ class WorldStateManager:
                 s.comms_coverage_pct -= 4
                 s.shelter_capacity_pct += 1
 
+        if event.event_type == "WEATHER_STATUS":
+            precip = float(p.get("precipitation_mm") or 0.0)
+            gust = float(p.get("wind_gust_kmh") or 0.0)
+            if precip >= 1.0:
+                s.medical_convoy_delay_hours += 0.1
+            if gust >= 25.0:
+                s.comms_coverage_pct -= 1
+
+        if event.event_type == "NATURAL_HAZARD_EVENT":
+            s.route_alpha_blocked = True
+            s.medical_convoy_delay_hours += 0.7
+            s.shelter_capacity_pct += 1
+
         self._clamp()
         return before != self.snapshot()
 

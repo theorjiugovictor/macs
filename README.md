@@ -28,6 +28,11 @@ GOOGLE_API_KEY=... GEMINI_MODEL=gemini-3.1-flash-lite-preview python main.py --l
 GOOGLE_API_KEY=... python main.py --live --ext-feeds --area stockholm --feed-interval 120
 ```
 
+External feeds currently integrated:
+- USGS earthquake feed
+- Open-Meteo weather feed (`WEATHER_STATUS` + `WEATHER_ALERT`)
+- NASA EONET open hazard events (`NATURAL_HAZARD_EVENT`)
+
 ### Dashboard
 ```bash
 cd frontend
