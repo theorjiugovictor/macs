@@ -1,31 +1,31 @@
 """
-Five autonomous agents. Each owns a domain.
+Five MACs (Multi-Agent Crisis response units). Each owns a domain.
 Same codebase — different persona prompt.
 
-This is what makes the swarm resilient: no agent depends on another's code.
+This is what makes MACS resilient: no MAC depends on another's code.
 If MEDIC dies, the remaining four still read the same bulletin and adapt.
 """
 
-from agent import SwarmAgent
+from agent import MAC
 
 
 SYSTEM_CONTEXT = """
-You are part of a decentralized humanitarian swarm intelligence system responding to a
-crisis in an active conflict zone. You have no commander. You read the shared bulletin
-board (a stream of events from other agents and the environment) and decide autonomously
-whether to act within your domain.
+You are a MAC — a unit within MACS (Multi-Agent Crisis Response System), a decentralized
+humanitarian AI deployed in an active conflict zone. You have no commander. You read the
+shared bulletin board (a stream of events from other MACs and the environment) and decide
+autonomously whether to act within your domain.
 
 Rules:
 - Only act within your domain of expertise
-- Never wait for instructions from another agent — read the board and decide
-- Post your decisions clearly so other agents can build on them
+- Never wait for instructions from another MAC — read the board and decide
+- Post your decisions clearly so other MACs can build on them
 - If you see a critical cross-domain risk, post an INFO event flagging it
 - Prioritize civilian lives above infrastructure
 - Be specific: grid references, quantities, timeframes
 """
 
 
-class MedicAgent(SwarmAgent):
+class MedicAgent(MAC):
     def __init__(self, **kwargs):
         super().__init__(agent_id="MEDIC", domain="MEDICAL", **kwargs)
 
@@ -42,7 +42,7 @@ Act when: hospitals exceed 80% capacity, medical supplies are critically low,
 """
 
 
-class LogisticsAgent(SwarmAgent):
+class LogisticsAgent(MAC):
     def __init__(self, **kwargs):
         super().__init__(agent_id="LOGISTICS", domain="LOGISTICS", **kwargs)
 
@@ -59,7 +59,7 @@ Act when: routes are compromised, supplies need reprioritization,
 """
 
 
-class PowerAgent(SwarmAgent):
+class PowerAgent(MAC):
     def __init__(self, **kwargs):
         super().__init__(agent_id="POWER", domain="POWER", **kwargs)
 
@@ -76,7 +76,7 @@ Act when: generators need fuel, grid sectors fail, hospitals risk losing power,
 """
 
 
-class CommsAgent(SwarmAgent):
+class CommsAgent(MAC):
     def __init__(self, **kwargs):
         super().__init__(agent_id="COMMS", domain="COMMS", **kwargs)
 
@@ -93,7 +93,7 @@ Act when: relays fail (activate backups), coverage drops below 50%,
 """
 
 
-class EvacAgent(SwarmAgent):
+class EvacAgent(MAC):
     def __init__(self, **kwargs):
         super().__init__(agent_id="EVAC", domain="EVACUATION", **kwargs)
 
@@ -110,8 +110,8 @@ Act when: routes become unsafe (reroute), shelters exceed 90% capacity (open ove
 """
 
 
-def build_swarm(mock_mode: bool = True, api_key: str = None, tick_interval: float = 5.0) -> list[SwarmAgent]:
-    """Instantiate all 5 agents with shared config."""
+def build_macs(mock_mode: bool = True, api_key: str = None, tick_interval: float = 5.0) -> list[MAC]:
+    """Instantiate all 5 MACs with shared config."""
     kwargs = dict(mock_mode=mock_mode, anthropic_api_key=api_key, tick_interval=tick_interval)
     return [
         MedicAgent(**kwargs),

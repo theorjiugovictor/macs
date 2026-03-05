@@ -29,7 +29,7 @@ SCENARIOS = {
         "description": (
             "A strike hits the city hospital's power grid. The cascade unfolds: "
             "medical emergency → logistics reroute → power crisis → comms relay lost → "
-            "mass evacuation. Watch the swarm self-coordinate."
+            "mass evacuation. Watch MACS self-coordinate."
         ),
         "events": [
             ScenarioEvent(
@@ -192,7 +192,7 @@ SCENARIOS = {
 
     "displacement": {
         "name": "Mass Displacement",
-        "description": "50,000 displaced civilians arriving. Shelter, food, medical — swarm coordinates intake.",
+        "description": "50,000 displaced civilians arriving. Shelter, food, medical — MACS coordinates intake.",
         "events": [
             ScenarioEvent(
                 delay=0,

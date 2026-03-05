@@ -1,13 +1,13 @@
 """
-SwarmAgent — Base class for all agents.
+MAC — Multi-Agent Crisis (response unit). Base class for all agents.
 
-Every agent runs an identical loop:
+Every MAC runs an identical loop:
   1. PERCEIVE  — read bulletin board since last tick
   2. REASON    — LLM decides whether to act (or mock response)
   3. ACT       — post decision back to bulletin board
 
-No agent knows about other agents. They only see the shared state.
-Resilience: if this process dies, no other agent's loop breaks.
+No MAC knows about other MACs. They only see the shared state.
+Resilience: if this process dies, no other MAC's loop breaks.
 """
 
 from __future__ import annotations
@@ -61,9 +61,10 @@ MOCK_RESPONSES = {
 }
 
 
-class SwarmAgent(ABC):
+class MAC(ABC):
     """
-    Base class. Subclasses override `persona_prompt` and optionally `mock_reason`.
+    Base class for a MAC (Multi-Agent Crisis response unit).
+    Subclasses override `persona_prompt` and optionally `mock_reason`.
     """
 
     def __init__(

@@ -49,7 +49,7 @@ function ConnectionBadge({ connected }) {
         background: connected ? '#4ade80' : '#f87171',
         boxShadow: connected ? '0 0 6px #4ade80' : 'none',
       }} />
-      {connected ? 'SWARM LIVE' : 'DISCONNECTED'}
+      {connected ? 'MACS LIVE' : 'DISCONNECTED'}
     </span>
   )
 }
@@ -237,7 +237,7 @@ export default function App() {
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <span style={{ fontSize: 18, fontWeight: 800, letterSpacing: '-0.5px', color: '#e5e7eb' }}>
-            ⬡ SWARM RELIEF
+            ⬡ MACS
           </span>
           {scenario && (
             <span style={{ color: '#f59e0b', fontSize: 11 }}>
@@ -276,7 +276,7 @@ export default function App() {
           background: '#0d1117',
         }}>
           <div style={{ color: '#6b7280', fontSize: 10, marginBottom: 4, letterSpacing: 1 }}>
-            SWARM NODES
+            MAC NODES
           </div>
           {AGENT_IDS.map(id => (
             <AgentCard key={id} id={id} data={agents[id]} />
@@ -328,8 +328,8 @@ export default function App() {
                 padding: 40, fontSize: 13,
               }}>
                 {connected
-                  ? '⬡ Waiting for swarm activity...'
-                  : '⬡ Connecting to swarm...'}
+                  ? '⬡ Waiting for MACS activity...'
+                  : '⬡ Connecting to MACS...'}
               </div>
             ) : (
               events.map(event => <EventRow key={event.id} event={event} />)

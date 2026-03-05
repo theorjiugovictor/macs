@@ -1,17 +1,18 @@
-# SwarmRelief — Architecture Document
+# MACS — Architecture Document
+*Multi-Agent Crisis Response System*
 *Epiminds Hackathon 2026 — Swarm Intelligence Track*
 
 ---
 
 ## Mission
 
-A **non-hierarchical swarm of AI agents** that exhibits collective intelligence in humanitarian crisis response during active conflict. No coordinators. No single points of failure. Just emergence.
+A **non-hierarchical swarm of autonomous AI agents (MACs)** that exhibits collective intelligence in humanitarian crisis response during active conflict. No coordinators. No single points of failure. Just emergence.
 
 ---
 
 ## Core Architecture: Stigmergy
 
-Inspired by ant colonies. Agents never communicate directly. They interact only through a **shared environment** — an append-only bulletin board (event log). This is stigmergy: coordination through environmental traces.
+Inspired by ant colonies. MACs never communicate directly. They interact only through a **shared environment** — an append-only bulletin board (event log). This is stigmergy: coordination through environmental traces.
 
 ```
                     ┌─────────────────────────────┐
@@ -34,13 +35,13 @@ Inspired by ant colonies. Agents never communicate directly. They interact only 
                     └─────────────────────┘
 ```
 
-**No agent ever calls another agent's function. No agent sends messages to another agent.**
+**No MAC ever calls another MAC's function. No MAC sends messages to another MAC.**
 
 ---
 
-## Agent Design
+## MAC Design
 
-Every agent runs the same loop:
+Every MAC runs the same loop:
 
 ```
 PERCEIVE → REASON → ACT
@@ -52,10 +53,10 @@ PERCEIVE → REASON → ACT
 
 Same codebase. Different system prompt = different domain expert.
 
-### The Five Agents
+### The Five MACs
 
-| Agent | Domain | Monitors | Typical Action |
-|-------|--------|----------|----------------|
+| MAC | Domain | Monitors | Typical Action |
+|-----|--------|----------|----------------|
 | MEDIC | MEDICAL | Hospital capacity, casualties, blood supply | Activate field triage, reroute patients |
 | LOGISTICS | LOGISTICS | Convoy routes, supply levels, fuel | Reroute convoys, reprioritize supplies |
 | POWER | POWER | Grid sectors, generator fuel | Deploy generators, trigger rolling blackouts |
@@ -67,12 +68,12 @@ Same codebase. Different system prompt = different domain expert.
 ## Shared State: The Bulletin Board
 
 ```python
-# Post an event (any agent or SYSTEM)
+# Post an event (any MAC or SYSTEM)
 bulletin.post(source="MEDIC", event_type="ACTION_TAKEN",
               domain="MEDICAL", severity="HIGH",
               payload={"message": "Field triage activated at B-7"})
 
-# Any agent reads the board
+# Any MAC reads the board
 events = bulletin.read_since(last_event_id)
 ```
 
@@ -85,7 +86,7 @@ events = bulletin.read_since(last_event_id)
 
 ## Emergence: The Cascade Scenario
 
-The "Hospital Cascade" scenario injects 7 SYSTEM events over 75 seconds. No agent is told what to do. The cascade is the emergence.
+The "Hospital Cascade" scenario injects 7 SYSTEM events over 75 seconds. No MAC is told what to do. The cascade is the emergence.
 
 ```
 T+00s  SYSTEM: Hospital hit → 92% capacity, 47 casualties
@@ -114,23 +115,23 @@ T+75s  SYSTEM: WHO field team available 18km north
        ↳ LOGISTICS: Coordinate convoy escort for WHO team
 ```
 
-**Six coherent, cross-domain responses. Zero instructions between agents.**
+**Six coherent, cross-domain responses. Zero instructions between MACs.**
 
 ---
 
 ## Resilience Demonstration
 
-Kill any agent mid-demo:
+Kill any MAC mid-demo:
 
 ```bash
 # Terminal (CLI mode)
 > kill MEDIC
 
 # Or Docker mode
-docker compose stop medic
+docker compose stop macs-core
 ```
 
-The remaining four agents continue reading the same bulletin board. LOGISTICS and EVAC independently pick up medical-relevant events and respond. No data is lost. No coordination breaks. The swarm degrades gracefully.
+The remaining four MACs continue reading the same bulletin board. LOGISTICS and EVAC independently pick up medical-relevant events and respond. No data is lost. No coordination breaks. MACS degrades gracefully.
 
 Revive:
 ```bash
@@ -144,11 +145,11 @@ Revive:
 
 **There is no coordinator.** Evidence:
 
-1. `agent.py`: No agent imports any other agent module
+1. `agent.py`: No MAC imports any other MAC module
 2. `shared_state.py`: The bulletin board has no routing logic — it's a dumb log
-3. `personas.py`: Agent prompts explicitly state "You have no commander"
-4. Kill any single agent: the swarm continues functioning
-5. No agent holds a lock that blocks others
+3. `personas.py`: MAC prompts explicitly state "You have no commander"
+4. Kill any single MAC: MACS continues functioning
+5. No MAC holds a lock that blocks others
 
 The only shared resource is the event log — and it's append-only.
 
@@ -158,12 +159,12 @@ The only shared resource is the event log — and it's append-only.
 
 | Layer | Technology | Why |
 |-------|-----------|-----|
-| Agent runtime | Python 3.12 + threads | Simple, portable, easy to kill/revive |
+| MAC runtime | Python 3.12 + threads | Simple, portable, easy to kill/revive |
 | LLM backbone | Claude (Anthropic) | Strong contextual reasoning for crisis decisions |
 | Shared state | In-memory BulletinBoard → Redis Streams | Append-only, observable, distributed-ready |
 | Real-time feed | WebSockets (websockets library) | Push to dashboard without polling |
 | Dashboard | React + Vite + Recharts | Fast iteration, live visualization |
-| Demo isolation | Docker Compose | `docker compose stop medic` = live kill demo |
+| Demo isolation | Docker Compose | Container-level MAC isolation |
 
 ---
 
@@ -173,9 +174,9 @@ The only shared resource is the event log — and it's append-only.
 # Backend (mock mode — no API key needed)
 cd backend
 pip install -r requirements.txt
-python main.py --mock
+python main.py
 
-# Backend (live Claude agents)
+# Backend (live Claude MACs)
 ANTHROPIC_API_KEY=sk-... python main.py --live
 
 # Dashboard

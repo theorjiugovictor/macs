@@ -1,15 +1,15 @@
 """
-SwarmRelief — Entry point
+MACS (Multi-Agent Crisis Response System) — Entry point
 
 Usage:
     python main.py                          # mock mode, cascade scenario
     python main.py --scenario blackout      # different scenario
-    python main.py --live --api-key sk-...  # real Claude agents
+    python main.py --live --api-key sk-...  # real Claude MACs
     python main.py --list-scenarios
 
 Controls (live, type in terminal):
-    kill <AGENT>      e.g. kill MEDIC     — simulates node failure
-    revive <AGENT>    e.g. revive MEDIC   — brings agent back
+    kill <MAC>        e.g. kill MEDIC     — simulates MAC failure
+    revive <MAC>      e.g. revive MEDIC   — brings MAC back online
     inject            — inject next crisis event manually
     state             — print bulletin board stats
     quit              — stop everything
@@ -23,7 +23,7 @@ import time
 import threading
 
 from shared_state import bulletin
-from personas import build_swarm
+from personas import build_macs
 from scenarios import ScenarioRunner
 from ws_server import start_ws_server
 
@@ -66,7 +66,7 @@ def print_event(event):
 
 def run_cli(agents: dict, runner: ScenarioRunner):
     """Simple CLI for live demo control."""
-    print("\n\033[1mSwarmRelief CLI — commands: kill <ID> | revive <ID> | state | inject | quit\033[0m\n")
+    print("\n\033[1mMACS CLI — commands: kill <MAC> | revive <MAC> | state | inject | quit\033[0m\n")
     while True:
         try:
             cmd = input("> ").strip().lower()
@@ -83,16 +83,16 @@ def run_cli(agents: dict, runner: ScenarioRunner):
             agent_id = parts[1].upper()
             if agent_id in agents:
                 agents[agent_id].stop()
-                print(f"\033[91m💀 {agent_id} killed.\033[0m")
+                print(f"\033[91m💀 MAC {agent_id} killed.\033[0m")
             else:
-                print(f"Unknown agent: {agent_id}")
+                print(f"Unknown MAC: {agent_id}")
         elif parts[0] == "revive" and len(parts) > 1:
             agent_id = parts[1].upper()
             if agent_id in agents:
                 agents[agent_id].start()
-                print(f"\033[92m✅ {agent_id} revived.\033[0m")
+                print(f"\033[92m✅ MAC {agent_id} back online.\033[0m")
             else:
-                print(f"Unknown agent: {agent_id}")
+                print(f"Unknown MAC: {agent_id}")
         elif parts[0] == "state":
             stats = bulletin.stats()
             print(f"\n{BOLD}Bulletin Board Stats:{RESET}")
@@ -101,14 +101,14 @@ def run_cli(agents: dict, runner: ScenarioRunner):
             print(f"  By severity  : {stats['by_severity']}")
             alive = [id for id, a in agents.items() if a.is_alive()]
             dead  = [id for id, a in agents.items() if not a.is_alive()]
-            print(f"  Agents alive : {', '.join(alive) or 'none'}")
-            print(f"  Agents dead  : {', '.join(dead) or 'none'}\n")
+            print(f"  MACs online  : {', '.join(alive) or 'none'}")
+            print(f"  MACs offline : {', '.join(dead) or 'none'}\n")
         else:
             print("Unknown command.")
 
 
 def main():
-    parser = argparse.ArgumentParser(description="SwarmRelief — decentralized crisis response swarm")
+    parser = argparse.ArgumentParser(description="MACS — Multi-Agent Crisis Response System")
     parser.add_argument("--scenario", default="cascade", help="Scenario key (cascade, blackout, displacement)")
     parser.add_argument("--list-scenarios", action="store_true", help="List available scenarios")
     parser.add_argument("--live", action="store_true", help="Use real Claude agents (requires --api-key)")
@@ -131,7 +131,7 @@ def main():
         sys.exit(1)
 
     print(f"\n{BOLD}{'='*60}")
-    print("  SWARM RELIEF — Decentralised Humanitarian Crisis Response")
+    print("  MACS — Multi-Agent Crisis Response System")
     print(f"{'='*60}{RESET}")
     print(f"  Mode     : {'🤖 Live (Claude)' if not mock_mode else '🔧 Mock'}")
     print(f"  Scenario : {args.scenario}")
@@ -145,10 +145,10 @@ def main():
         start_ws_server()
         print("  Dashboard: ws://localhost:8765")
 
-    print(f"\n{BOLD}Starting swarm...{RESET}\n")
+    print(f"\n{BOLD}Deploying MACs...{RESET}\n")
 
-    # Build and start agents
-    swarm = build_swarm(mock_mode=mock_mode, api_key=api_key, tick_interval=args.tick)
+    # Build and start MACs
+    swarm = build_macs(mock_mode=mock_mode, api_key=api_key, tick_interval=args.tick)
     agent_map = {a.agent_id: a for a in swarm}
     for agent in swarm:
         agent.start()
@@ -158,7 +158,7 @@ def main():
     runner = ScenarioRunner(args.scenario)
     runner.start()
 
-    print(f"\n{BOLD}Swarm active. Scenario '{args.scenario}' running.{RESET}\n")
+    print(f"\n{BOLD}MACS active. Scenario '{args.scenario}' running.{RESET}\n")
 
     # Run CLI (blocking)
     try:
@@ -167,7 +167,7 @@ def main():
         runner.stop()
         for agent in swarm:
             agent.stop()
-        print(f"\n{BOLD}Swarm stopped.{RESET}")
+        print(f"\n{BOLD}MACS stopped.{RESET}")
         stats = bulletin.stats()
         print(f"Total events on bulletin: {stats['total_events']}")
 

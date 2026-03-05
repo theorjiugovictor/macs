@@ -1,23 +1,22 @@
 version: "3.9"
 
 # ────────────────────────────────────────────────────────────────────────────────
-# SwarmRelief — Docker Compose
+# MACS — Multi-Agent Crisis Response System — Docker Compose
 #
 # Demo kill command:
-#   docker compose stop medic     → kills MEDIC agent live
-#   docker compose start medic    → revives it
+#   docker compose stop macs-core     → kills all MACs live
 #
 # Note: In this architecture the shared state (BulletinBoard) lives in the
-# swarm process. For true multi-process isolation, swap to Redis Streams
-# and run one container per agent.
+# macs-core process. For true multi-process isolation, swap to Redis Streams
+# and run one container per MAC.
 # ────────────────────────────────────────────────────────────────────────────────
 
 services:
-  swarm:
+  macs-core:
     build:
       context: .
       dockerfile: docker/Dockerfile.agent
-    container_name: swarm-relief-core
+    container_name: macs-core
     environment:
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
       - SCENARIO=${SCENARIO:-cascade}
@@ -34,9 +33,9 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile.dashboard
-    container_name: swarm-relief-dashboard
+    container_name: macs-dashboard
     ports:
       - "3000:80"
     depends_on:
-      - swarm
+      - macs-core
     restart: unless-stopped

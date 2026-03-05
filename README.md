@@ -1,6 +1,6 @@
-# ⬡ SwarmRelief
+# ⬡ MACS — Multi-Agent Crisis Response System
 
-> A non-hierarchical swarm of AI agents for humanitarian crisis response in conflict zones.
+> A non-hierarchical swarm of autonomous AI agents (MACs) for humanitarian crisis response in conflict zones.
 > No coordinators. No bottlenecks. Just emergence.
 
 Built for the **Epiminds Hackathon 2026**.
@@ -9,14 +9,14 @@ Built for the **Epiminds Hackathon 2026**.
 
 ## Quick Start
 
-### Mock mode (no API key)
+### Mock mode (no API key needed)
 ```bash
 cd backend
 pip install -r requirements.txt
 python main.py
 ```
 
-### Live mode (Claude agents)
+### Live mode (real Claude MACs)
 ```bash
 ANTHROPIC_API_KEY=sk-... python main.py --live
 ```
@@ -41,10 +41,10 @@ ANTHROPIC_API_KEY=sk-... docker compose up
 ## CLI Controls
 
 ```
-kill MEDIC       — simulate agent failure (live demo moment)
-revive MEDIC     — bring agent back online
+kill MEDIC       — simulate MAC failure (live demo moment)
+revive MEDIC     — bring MAC back online
 state            — print bulletin board stats
-quit             — stop swarm
+quit             — stop MACS
 ```
 
 ## Scenarios
@@ -58,12 +58,24 @@ python main.py --list-scenarios
 
 ---
 
+## What is a MAC?
+
+A **MAC** (Multi-Agent Crisis response unit) is a single autonomous agent that:
+- Owns one domain (MEDICAL, LOGISTICS, POWER, COMMS, or EVACUATION)
+- Reads the shared bulletin board continuously
+- Reasons independently about whether to act
+- Posts its decisions back to the board
+
+MACs never talk to each other directly. **MACS** is the collective system.
+
+---
+
 ## Architecture
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for the full design doc.
 
-**tldr**: 5 agents. 1 append-only bulletin board. No coordinator.
-Agents perceive → reason → act. Coordination emerges from the shared environment.
+**tldr**: 5 MACs. 1 append-only bulletin board. No coordinator.
+Each MAC perceives → reasons → acts. Coordination emerges from the shared environment (stigmergy).
 
 ```
 MEDIC ──┐
@@ -78,18 +90,18 @@ EVAC ───┘               └──────────────┘
 ## File Structure
 
 ```
-swarm-relief/
+macs/
 ├── backend/
 │   ├── main.py           # Entry point + CLI
 │   ├── shared_state.py   # Bulletin board (append-only event log + WS broadcast)
-│   ├── agent.py          # SwarmAgent base class (perceive→reason→act loop)
-│   ├── personas.py       # 5 agent personas (MEDIC, LOGISTICS, POWER, COMMS, EVAC)
+│   ├── agent.py          # MAC base class (perceive→reason→act loop)
+│   ├── personas.py       # 5 MACs: MEDIC, LOGISTICS, POWER, COMMS, EVAC
 │   ├── scenarios.py      # Crisis scenarios with timed event injection
 │   ├── ws_server.py      # WebSocket server for dashboard
 │   └── requirements.txt
 ├── frontend/
 │   ├── src/
-│   │   ├── App.jsx       # Dashboard UI
+│   │   ├── App.jsx       # Dashboard UI (MAC status, live feed, emergence graph)
 │   │   ├── useSwarm.js   # WebSocket hook
 │   │   └── index.css
 │   ├── index.html
