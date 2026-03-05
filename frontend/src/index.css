@@ -1,0 +1,33 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:       #0a0e1a;
+  --surface:  #111827;
+  --border:   #1f2937;
+  --text:     #e5e7eb;
+  --muted:    #6b7280;
+  --critical: #ef4444;
+  --high:     #f59e0b;
+  --medium:   #06b6d4;
+  --low:      #22c55e;
+  --info:     #4b5563;
+
+  --medical:    #f43f5e;
+  --logistics:  #f97316;
+  --power:      #eab308;
+  --comms:      #8b5cf6;
+  --evacuation: #06b6d4;
+  --system:     #64748b;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }

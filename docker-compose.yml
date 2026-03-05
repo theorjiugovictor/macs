@@ -1,0 +1,42 @@
+version: "3.9"
+
+# ────────────────────────────────────────────────────────────────────────────────
+# SwarmRelief — Docker Compose
+#
+# Demo kill command:
+#   docker compose stop medic     → kills MEDIC agent live
+#   docker compose start medic    → revives it
+#
+# Note: In this architecture the shared state (BulletinBoard) lives in the
+# swarm process. For true multi-process isolation, swap to Redis Streams
+# and run one container per agent.
+# ────────────────────────────────────────────────────────────────────────────────
+
+services:
+  swarm:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.agent
+    container_name: swarm-relief-core
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - SCENARIO=${SCENARIO:-cascade}
+    ports:
+      - "8765:8765"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "python -c 'import socket; s=socket.socket(); s.connect((\"localhost\",8765)); s.close()'"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  dashboard:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.dashboard
+    container_name: swarm-relief-dashboard
+    ports:
+      - "3000:80"
+    depends_on:
+      - swarm
+    restart: unless-stopped

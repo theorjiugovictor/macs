@@ -1,0 +1,176 @@
+"""
+SwarmRelief — Entry point
+
+Usage:
+    python main.py                          # mock mode, cascade scenario
+    python main.py --scenario blackout      # different scenario
+    python main.py --live --api-key sk-...  # real Claude agents
+    python main.py --list-scenarios
+
+Controls (live, type in terminal):
+    kill <AGENT>      e.g. kill MEDIC     — simulates node failure
+    revive <AGENT>    e.g. revive MEDIC   — brings agent back
+    inject            — inject next crisis event manually
+    state             — print bulletin board stats
+    quit              — stop everything
+"""
+
+import argparse
+import logging
+import os
+import sys
+import time
+import threading
+
+from shared_state import bulletin
+from personas import build_swarm
+from scenarios import ScenarioRunner
+from ws_server import start_ws_server
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s  %(levelname)-7s  %(name)s  %(message)s",
+    datefmt="%H:%M:%S",
+)
+logger = logging.getLogger("main")
+
+SEVERITY_COLOR = {
+    "CRITICAL": "\033[91m",  # red
+    "HIGH":     "\033[93m",  # yellow
+    "MEDIUM":   "\033[96m",  # cyan
+    "LOW":      "\033[92m",  # green
+    "INFO":     "\033[37m",  # grey
+}
+RESET = "\033[0m"
+BOLD  = "\033[1m"
+
+DOMAIN_ICON = {
+    "MEDICAL":    "🏥",
+    "LOGISTICS":  "🚛",
+    "POWER":      "⚡",
+    "COMMS":      "📡",
+    "EVACUATION": "🚌",
+    "SYSTEM":     "🌐",
+}
+
+
+def print_event(event):
+    color = SEVERITY_COLOR.get(event.severity, "")
+    icon  = DOMAIN_ICON.get(event.domain, "•")
+    msg   = event.payload.get("message", "")[:100]
+    print(
+        f"{color}[{event.id}] {icon} {BOLD}{event.source:<10}{RESET}{color} "
+        f"| {event.event_type:<25} | {msg}{RESET}"
+    )
+
+
+def run_cli(agents: dict, runner: ScenarioRunner):
+    """Simple CLI for live demo control."""
+    print("\n\033[1mSwarmRelief CLI — commands: kill <ID> | revive <ID> | state | inject | quit\033[0m\n")
+    while True:
+        try:
+            cmd = input("> ").strip().lower()
+        except (EOFError, KeyboardInterrupt):
+            break
+
+        parts = cmd.split()
+        if not parts:
+            continue
+
+        if parts[0] == "quit":
+            break
+        elif parts[0] == "kill" and len(parts) > 1:
+            agent_id = parts[1].upper()
+            if agent_id in agents:
+                agents[agent_id].stop()
+                print(f"\033[91m💀 {agent_id} killed.\033[0m")
+            else:
+                print(f"Unknown agent: {agent_id}")
+        elif parts[0] == "revive" and len(parts) > 1:
+            agent_id = parts[1].upper()
+            if agent_id in agents:
+                agents[agent_id].start()
+                print(f"\033[92m✅ {agent_id} revived.\033[0m")
+            else:
+                print(f"Unknown agent: {agent_id}")
+        elif parts[0] == "state":
+            stats = bulletin.stats()
+            print(f"\n{BOLD}Bulletin Board Stats:{RESET}")
+            print(f"  Total events : {stats['total_events']}")
+            print(f"  By domain    : {stats['by_domain']}")
+            print(f"  By severity  : {stats['by_severity']}")
+            alive = [id for id, a in agents.items() if a.is_alive()]
+            dead  = [id for id, a in agents.items() if not a.is_alive()]
+            print(f"  Agents alive : {', '.join(alive) or 'none'}")
+            print(f"  Agents dead  : {', '.join(dead) or 'none'}\n")
+        else:
+            print("Unknown command.")
+
+
+def main():
+    parser = argparse.ArgumentParser(description="SwarmRelief — decentralized crisis response swarm")
+    parser.add_argument("--scenario", default="cascade", help="Scenario key (cascade, blackout, displacement)")
+    parser.add_argument("--list-scenarios", action="store_true", help="List available scenarios")
+    parser.add_argument("--live", action="store_true", help="Use real Claude agents (requires --api-key)")
+    parser.add_argument("--api-key", default=os.getenv("ANTHROPIC_API_KEY"), help="Anthropic API key")
+    parser.add_argument("--tick", type=float, default=5.0, help="Agent tick interval in seconds")
+    parser.add_argument("--no-ws", action="store_true", help="Disable WebSocket server")
+    args = parser.parse_args()
+
+    if args.list_scenarios:
+        for s in ScenarioRunner.list_scenarios():
+            print(f"  {s['key']:15} {s['name']}")
+            print(f"               {s['description'][:80]}...")
+        return
+
+    mock_mode = not args.live
+    api_key   = args.api_key if args.live else None
+
+    if args.live and not api_key:
+        print("ERROR: --live requires ANTHROPIC_API_KEY env var or --api-key flag")
+        sys.exit(1)
+
+    print(f"\n{BOLD}{'='*60}")
+    print("  SWARM RELIEF — Decentralised Humanitarian Crisis Response")
+    print(f"{'='*60}{RESET}")
+    print(f"  Mode     : {'🤖 Live (Claude)' if not mock_mode else '🔧 Mock'}")
+    print(f"  Scenario : {args.scenario}")
+    print(f"  Tick     : {args.tick}s\n")
+
+    # Subscribe printer to bulletin
+    bulletin.subscribe(print_event)
+
+    # Start WebSocket server
+    if not args.no_ws:
+        start_ws_server()
+        print("  Dashboard: ws://localhost:8765")
+
+    print(f"\n{BOLD}Starting swarm...{RESET}\n")
+
+    # Build and start agents
+    swarm = build_swarm(mock_mode=mock_mode, api_key=api_key, tick_interval=args.tick)
+    agent_map = {a.agent_id: a for a in swarm}
+    for agent in swarm:
+        agent.start()
+        time.sleep(0.3)  # stagger starts
+
+    # Start scenario
+    runner = ScenarioRunner(args.scenario)
+    runner.start()
+
+    print(f"\n{BOLD}Swarm active. Scenario '{args.scenario}' running.{RESET}\n")
+
+    # Run CLI (blocking)
+    try:
+        run_cli(agent_map, runner)
+    finally:
+        runner.stop()
+        for agent in swarm:
+            agent.stop()
+        print(f"\n{BOLD}Swarm stopped.{RESET}")
+        stats = bulletin.stats()
+        print(f"Total events on bulletin: {stats['total_events']}")
+
+
+if __name__ == "__main__":
+    main()
