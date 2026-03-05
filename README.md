@@ -5,6 +5,8 @@
 
 Built for the **Epiminds Hackathon 2026**.
 
+Run book for live judging/demo flow: [RUNBOOK.md](RUNBOOK.md)
+
 ---
 
 ## Quick Start
