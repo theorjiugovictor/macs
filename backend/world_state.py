@@ -152,6 +152,26 @@ class WorldStateManager:
             s.route_alpha_blocked = True
             s.medical_convoy_delay_hours = max(s.medical_convoy_delay_hours, 2.0)
 
+        # External feed impacts
+        if event.event_type == "SEISMIC_ACTIVITY":
+            mag = float(p.get("magnitude") or 0.0)
+            if mag >= 4.0:
+                s.grid_sectors_offline += 1
+                s.route_alpha_blocked = True
+                s.medical_convoy_delay_hours += 0.5
+                s.hospital_casualties += int(max(1, (mag - 3.5) * 3))
+
+        if event.event_type == "WEATHER_ALERT":
+            precip = float(p.get("precipitation_mm") or 0.0)
+            gust = float(p.get("wind_gust_kmh") or 0.0)
+            if precip >= 2.0 or gust >= 35.0:
+                s.medical_convoy_delay_hours += 0.4
+                s.comms_coverage_pct -= 2
+            if precip >= 6.0 or gust >= 50.0:
+                s.medical_convoy_delay_hours += 0.6
+                s.comms_coverage_pct -= 4
+                s.shelter_capacity_pct += 1
+
         self._clamp()
         return before != self.snapshot()
 

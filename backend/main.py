@@ -73,6 +73,7 @@ from ws_server import start_ws_server
 from verifier import Verifier
 from intake_server import start_intake_server, get_local_ip, INTAKE_PORT
 from world_state import start_world_state
+from external_feeds import ExternalFeedRunner
 
 logging.basicConfig(
     level=logging.INFO,
@@ -177,6 +178,10 @@ def main():
     parser.add_argument("--google-api-key", default=os.getenv("GOOGLE_API_KEY"), help="Google/Gemini API key")
     parser.add_argument("--tick", type=float, default=5.0, help="Agent tick interval in seconds")
     parser.add_argument("--no-ws", action="store_true", help="Disable WebSocket server")
+    parser.add_argument("--ext-feeds", action="store_true", help="Enable external real-world feeds")
+    parser.add_argument("--area", default="stockholm", choices=["stockholm", "sweden", "iran"],
+                        help="Geographic scope for external feeds")
+    parser.add_argument("--feed-interval", type=int, default=120, help="External feed poll interval seconds")
     args = parser.parse_args()
 
     if args.list_scenarios:
@@ -230,6 +235,12 @@ def main():
     # Start world state manager (shared operational picture)
     world_state_mgr = start_world_state(args.scenario)
 
+    feed_runner = None
+    if args.ext_feeds:
+        feed_runner = ExternalFeedRunner(area_key=args.area, interval=args.feed_interval)
+        feed_runner.start()
+        print(f"  External feeds: enabled ({args.area}, {args.feed_interval}s)")
+
     print(f"\n{BOLD}Deploying MACs...{RESET}\n")
 
     # Build and start MACs
@@ -258,6 +269,8 @@ def main():
             signal.signal(signal.SIGINT,  lambda *_: stop_event.set())
             stop_event.wait()
     finally:
+        if feed_runner:
+            feed_runner.stop()
         runner.stop()
         for agent in swarm:
             agent.stop()

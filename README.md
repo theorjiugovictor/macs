@@ -23,6 +23,11 @@ python main.py
 GOOGLE_API_KEY=... GEMINI_MODEL=gemini-3.1-flash-lite-preview python main.py --live
 ```
 
+### Live mode + real-world scoped feeds (Stockholm / Sweden / Iran)
+```bash
+GOOGLE_API_KEY=... python main.py --live --ext-feeds --area stockholm --feed-interval 120
+```
+
 ### Dashboard
 ```bash
 cd frontend
@@ -59,6 +64,7 @@ python main.py --scenario cascade      # Hospital cascade (default)
 python main.py --scenario blackout     # City-wide power failure
 python main.py --scenario displacement # Mass civilian displacement
 python main.py --list-scenarios
+python main.py --live --ext-feeds --area iran
 ```
 
 ---
