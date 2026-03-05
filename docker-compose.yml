@@ -19,7 +19,7 @@ services:
     container_name: macs-core
     environment:
       - GOOGLE_API_KEY=${GOOGLE_API_KEY:-}
-      - GEMINI_MODEL=${GEMINI_MODEL:-gemini-3.1-flash}
+      - GEMINI_MODEL=${GEMINI_MODEL:-gemini-3.1-flash-lite-preview}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
       - SCENARIO=${SCENARIO:-cascade}
     ports:

@@ -18,7 +18,7 @@ python main.py
 
 ### Live mode (Gemini 3.1 Flash)
 ```bash
-GOOGLE_API_KEY=... GEMINI_MODEL=gemini-3.1-flash python main.py --live
+GOOGLE_API_KEY=... GEMINI_MODEL=gemini-3.1-flash-lite-preview python main.py --live
 ```
 
 ### Dashboard
@@ -31,7 +31,7 @@ npm run dev
 
 ### Docker
 ```bash
-GOOGLE_API_KEY=... GEMINI_MODEL=gemini-3.1-flash docker compose up
+GOOGLE_API_KEY=... GEMINI_MODEL=gemini-3.1-flash-lite-preview docker compose up
 # Dashboard → http://localhost:3000
 # WS server → ws://localhost:8765
 ```

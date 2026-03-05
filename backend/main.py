@@ -80,7 +80,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger("main")
 
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.1-flash")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.1-flash-lite-preview")
 
 SEVERITY_COLOR = {
     "CRITICAL": "\033[91m",  # red

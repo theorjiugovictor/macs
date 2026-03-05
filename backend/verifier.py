@@ -20,7 +20,7 @@ except ImportError:
     _GOOGLE_AVAILABLE = False
 
 
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.1-flash")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.1-flash-lite-preview")
 
 # ── Keyword maps ──────────────────────────────────────────────────────────────
 

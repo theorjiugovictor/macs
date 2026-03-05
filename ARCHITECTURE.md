@@ -177,7 +177,7 @@ pip install -r requirements.txt
 python main.py
 
 # Backend (live Gemini MACs)
-GOOGLE_API_KEY=... GEMINI_MODEL=gemini-3.1-flash python main.py --live
+GOOGLE_API_KEY=... GEMINI_MODEL=gemini-3.1-flash-lite-preview python main.py --live
 
 # Dashboard
 cd frontend
@@ -185,7 +185,7 @@ npm install && npm run dev
 # Open http://localhost:3000
 
 # Docker (full stack)
-GOOGLE_API_KEY=... GEMINI_MODEL=gemini-3.1-flash docker compose up
+GOOGLE_API_KEY=... GEMINI_MODEL=gemini-3.1-flash-lite-preview docker compose up
 ```
 
 ---
