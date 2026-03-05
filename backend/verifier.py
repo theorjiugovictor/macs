@@ -2,11 +2,12 @@
 Verifier — filters and classifies citizen field reports before bulletin ingestion.
 
 Mock mode : keyword-based domain/severity classifier (no API key needed).
-Live mode : Claude Haiku reads the report + bulletin context and returns JSON.
+Live mode : Gemini reads the report + bulletin context and returns JSON.
 """
 
 import json
 import logging
+import os
 from typing import Optional
 
 logger = logging.getLogger(__name__)
@@ -17,6 +18,9 @@ try:
     _GOOGLE_AVAILABLE = True
 except ImportError:
     _GOOGLE_AVAILABLE = False
+
+
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.1-flash")
 
 # ── Keyword maps ──────────────────────────────────────────────────────────────
 
@@ -78,7 +82,7 @@ class Verifier:
         if not mock_mode:
             if google_api_key and _GOOGLE_AVAILABLE:
                 self._gclient = google_genai.Client(api_key=google_api_key)
-                logger.info("[VERIFIER] Live mode — using Gemini 2.0 Flash")
+                logger.info(f"[VERIFIER] Live mode — using Gemini model: {GEMINI_MODEL}")
             elif anthropic_api_key:
                 try:
                     import anthropic
@@ -138,7 +142,7 @@ class Verifier:
             "reject_reason": "",
         }
 
-    # ── Live verifier (Gemini 2.0 Flash) ─────────────────────────────────────
+    # ── Live verifier (Gemini) ───────────────────────────────────────────────
 
     def _gemini_verify(self, message: str, location: str, context: list) -> dict:
         ctx_str = json.dumps(context[-10:], indent=2)
@@ -149,7 +153,7 @@ class Verifier:
         )
         try:
             response = self._gclient.models.generate_content(
-                model="gemini-2.0-flash",
+                model=GEMINI_MODEL,
                 contents=user_msg,
                 config=google_types.GenerateContentConfig(
                     system_instruction=LIVE_SYSTEM_PROMPT,

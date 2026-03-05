@@ -16,9 +16,9 @@ pip install -r requirements.txt
 python main.py
 ```
 
-### Live mode (real Claude MACs)
+### Live mode (Gemini 3.1 Flash)
 ```bash
-ANTHROPIC_API_KEY=sk-... python main.py --live
+GOOGLE_API_KEY=... GEMINI_MODEL=gemini-3.1-flash python main.py --live
 ```
 
 ### Dashboard
@@ -31,10 +31,12 @@ npm run dev
 
 ### Docker
 ```bash
-ANTHROPIC_API_KEY=sk-... docker compose up
+GOOGLE_API_KEY=... GEMINI_MODEL=gemini-3.1-flash docker compose up
 # Dashboard → http://localhost:3000
 # WS server → ws://localhost:8765
 ```
+
+> Optional fallback: set `ANTHROPIC_API_KEY` if you want to run Claude instead.
 
 ---
 

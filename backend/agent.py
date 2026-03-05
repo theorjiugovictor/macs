@@ -16,6 +16,7 @@ import time
 import threading
 import json
 import logging
+import os
 from abc import ABC, abstractmethod
 from dataclasses import asdict
 from typing import Optional
@@ -37,6 +38,9 @@ try:
     _GOOGLE_AVAILABLE = True
 except ImportError:
     _GOOGLE_AVAILABLE = False
+
+
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.1-flash")
 
 
 MOCK_RESPONSES = {
@@ -194,7 +198,7 @@ class MAC(ABC):
         if not mock_mode:
             if google_api_key and _GOOGLE_AVAILABLE:
                 self._gclient = google_genai.Client(api_key=google_api_key)
-                logger.info(f"[{agent_id}] using Gemini 2.0 Flash")
+                logger.info(f"[{agent_id}] using Gemini model: {GEMINI_MODEL}")
             elif anthropic_api_key and _ANTHROPIC_AVAILABLE:
                 self._client = anthropic.Anthropic(api_key=anthropic_api_key)
                 logger.info(f"[{agent_id}] using Claude")
@@ -328,11 +332,11 @@ If no action needed:
 Respond ONLY with valid JSON. No markdown."""
 
     def _gemini_reason(self, context: str, relevant_events: list) -> Optional[dict]:
-        """Reason using Gemini 2.0 Flash."""
+        """Reason using Gemini."""
         user_prompt = self._build_user_prompt(context, relevant_events)
         try:
             response = self._gclient.models.generate_content(
-                model="gemini-2.0-flash",
+                model=GEMINI_MODEL,
                 contents=user_prompt,
                 config=google_types.GenerateContentConfig(
                     system_instruction=self.persona_prompt,

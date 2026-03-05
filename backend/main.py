@@ -4,7 +4,7 @@ MACS (Multi-Agent Crisis Response System) — Entry point
 Usage:
     python main.py                          # mock mode, cascade scenario
     python main.py --scenario blackout      # different scenario
-    python main.py --live --api-key sk-...  # real Claude MACs
+    GOOGLE_API_KEY=... python main.py --live # real Gemini MACs
     python main.py --list-scenarios
 
 Controls (live, type in terminal):
@@ -79,6 +79,8 @@ logging.basicConfig(
     datefmt="%H:%M:%S",
 )
 logger = logging.getLogger("main")
+
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.1-flash")
 
 SEVERITY_COLOR = {
     "CRITICAL": "\033[91m",  # red
@@ -185,7 +187,7 @@ def main():
     if mock_mode:
         mode_str = "🔧 Mock"
     elif google_key:
-        mode_str = "🤖 Live (Gemini 2.0 Flash)"
+        mode_str = f"🤖 Live ({GEMINI_MODEL})"
     else:
         mode_str = "🤖 Live (Claude)"
 

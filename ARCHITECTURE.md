@@ -48,7 +48,7 @@ PERCEIVE → REASON → ACT
 ```
 
 1. **PERCEIVE**: Read new events from the bulletin board since last tick
-2. **REASON**: LLM (Claude) analyzes the situation — should I act?
+2. **REASON**: LLM (Gemini 3.1 Flash) analyzes the situation — should I act?
 3. **ACT**: Post decision back to the bulletin board
 
 Same codebase. Different system prompt = different domain expert.
@@ -160,7 +160,7 @@ The only shared resource is the event log — and it's append-only.
 | Layer | Technology | Why |
 |-------|-----------|-----|
 | MAC runtime | Python 3.12 + threads | Simple, portable, easy to kill/revive |
-| LLM backbone | Claude (Anthropic) | Strong contextual reasoning for crisis decisions |
+| LLM backbone | Gemini 3.1 Flash (Google) | Fast multimodal reasoning for crisis decisions |
 | Shared state | In-memory BulletinBoard → Redis Streams | Append-only, observable, distributed-ready |
 | Real-time feed | WebSockets (websockets library) | Push to dashboard without polling |
 | Dashboard | React + Vite + Recharts | Fast iteration, live visualization |
@@ -176,8 +176,8 @@ cd backend
 pip install -r requirements.txt
 python main.py
 
-# Backend (live Claude MACs)
-ANTHROPIC_API_KEY=sk-... python main.py --live
+# Backend (live Gemini MACs)
+GOOGLE_API_KEY=... GEMINI_MODEL=gemini-3.1-flash python main.py --live
 
 # Dashboard
 cd frontend
@@ -185,7 +185,7 @@ npm install && npm run dev
 # Open http://localhost:3000
 
 # Docker (full stack)
-ANTHROPIC_API_KEY=sk-... docker compose up
+GOOGLE_API_KEY=... GEMINI_MODEL=gemini-3.1-flash docker compose up
 ```
 
 ---
