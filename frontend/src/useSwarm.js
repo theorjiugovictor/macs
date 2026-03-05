@@ -27,13 +27,23 @@ export function useSwarm() {
       setAgents(prev => {
         const agentId = event.source
         if (!prev[agentId]) return prev
+
+        const prevStatus = prev[agentId].status
+        const nextStatus = event.event_type === 'AGENT_OFFLINE' ? 'offline'
+          : event.event_type === 'AGENT_ONLINE' ? 'online'
+          : 'active'
+
+        // If an agent is already offline, ignore stray non-lifecycle events
+        // until we explicitly see AGENT_ONLINE again.
+        const effectiveStatus = (prevStatus === 'offline' && event.event_type !== 'AGENT_ONLINE')
+          ? 'offline'
+          : nextStatus
+
         return {
           ...prev,
           [agentId]: {
             ...prev[agentId],
-            status: event.event_type === 'AGENT_OFFLINE' ? 'offline'
-                  : event.event_type === 'AGENT_ONLINE'  ? 'online'
-                  : 'active',
+            status: effectiveStatus,
             lastSeen: event.timestamp,
             actionCount: event.event_type === 'ACTION_TAKEN'
               ? prev[agentId].actionCount + 1
