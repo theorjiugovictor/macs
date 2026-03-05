@@ -231,14 +231,31 @@ class WorldStateManager:
         return before != self.snapshot()
 
     def _emit(self, reason: str):
+        snap = self.snapshot()
+        med = snap["medical"]
+        pwr = snap["power"]
+        com = snap["comms"]
+        log = snap["logistics"]
+        evc = snap["evacuation"]
+
+        summary = (
+            f"WS {reason}: casualties={med['hospital_casualties']}, "
+            f"hospital={med['hospital_capacity_pct']}%, "
+            f"grid_offline={pwr['grid_sectors_offline']}, "
+            f"comms={com['coverage_pct']}%, "
+            f"convoy_delay={log['medical_convoy_delay_hours']}h, "
+            f"displaced={evc['civilians_displaced']}"
+        )
+
         bulletin.post(
             source="SYSTEM",
             event_type="WORLD_STATE_UPDATE",
             domain="SYSTEM",
             severity="INFO",
             payload={
-                "message": f"World state updated ({reason})",
-                "state": self.snapshot(),
+                "message": summary,
+                "reason": reason,
+                "state": snap,
             },
             tags=["world-state"],
         )
