@@ -99,17 +99,18 @@ Classify and respond with JSON:
 # corroborate them.
 
 CORROBORATION_MAP = {
-    "MEDICAL":    {"SEISMIC_ACTIVITY", "NATURAL_HAZARD_EVENT", "WEATHER_ALERT"},
-    "POWER":      {"SEISMIC_ACTIVITY", "WEATHER_ALERT", "NATURAL_HAZARD_EVENT"},
-    "COMMS":      {"SEISMIC_ACTIVITY", "WEATHER_ALERT", "NATURAL_HAZARD_EVENT"},
-    "LOGISTICS":  {"SEISMIC_ACTIVITY", "WEATHER_ALERT", "NATURAL_HAZARD_EVENT", "WEATHER_STATUS"},
-    "EVACUATION": {"SEISMIC_ACTIVITY", "WEATHER_ALERT", "NATURAL_HAZARD_EVENT"},
+    "MEDICAL":    {"SEISMIC_ACTIVITY", "NATURAL_HAZARD_EVENT", "WEATHER_ALERT", "CRISIS_ALERT", "INFRASTRUCTURE_FAILURE"},
+    "POWER":      {"SEISMIC_ACTIVITY", "WEATHER_ALERT", "WEATHER_STATUS", "NATURAL_HAZARD_EVENT", "CRISIS_ALERT", "INFRASTRUCTURE_FAILURE"},
+    "COMMS":      {"SEISMIC_ACTIVITY", "WEATHER_ALERT", "NATURAL_HAZARD_EVENT", "CRISIS_ALERT", "INFRASTRUCTURE_FAILURE"},
+    "LOGISTICS":  {"SEISMIC_ACTIVITY", "WEATHER_ALERT", "WEATHER_STATUS", "NATURAL_HAZARD_EVENT", "CRISIS_ALERT", "INFRASTRUCTURE_FAILURE"},
+    "EVACUATION": {"SEISMIC_ACTIVITY", "WEATHER_ALERT", "NATURAL_HAZARD_EVENT", "CRISIS_ALERT", "INFRASTRUCTURE_FAILURE"},
 }
 
 # How much each source layer contributes to corroboration score
 LAYER_WEIGHTS = {
     "SENSOR": 0.45,   # Ground truth — highest weight
     "API":    0.35,   # Institutional truth
+    "SYSTEM": 0.30,   # Scenario/system events — simulation ground truth
     "CROWD":  0.15,   # Other citizen reports
     "AGENT":  0.05,   # Agent analysis (derivative, low weight)
 }
@@ -190,9 +191,9 @@ class Verifier:
             return {"score": 0.0, "matching_event_ids": [], "layers_matched": []}
 
         for event in recent:
-            # Must be from SENSOR or API layer
+            # Accept SENSOR, API, SYSTEM (scenario events) as corroboration
             layer = event.get("source_layer", "SYSTEM")
-            if layer not in ("SENSOR", "API", "CROWD"):
+            if layer not in ("SENSOR", "API", "SYSTEM"):
                 continue
 
             # Must be a corroborating event type
