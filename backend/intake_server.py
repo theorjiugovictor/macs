@@ -434,6 +434,12 @@ function showTab(t){
 function handlePhoto(input){
   var file=input.files[0]; if(!file)return;
   photoMime=file.type;
+  // Size guard: skip compression for very small files
+  var MAX_FILE_MB=20;
+  if(file.size>MAX_FILE_MB*1024*1024){
+    alert('Photo too large (max '+MAX_FILE_MB+'MB). Please choose a smaller image.');
+    input.value='';return;
+  }
   if(file.type.startsWith('video/')){
     // For video, just store the file reference — we'll send a thumbnail
     var video=document.createElement('video');
@@ -452,8 +458,14 @@ function handlePhoto(input){
     video.src=URL.createObjectURL(file);
   } else {
     var reader=new FileReader();
+    reader.onerror=function(){alert('Could not read photo. Try a different image.');};
     reader.onload=function(e){
       var img=new Image();
+      img.onerror=function(){
+        // Fallback: if Image() can't decode (HEIC etc), send raw base64
+        photoB64=e.target.result;
+        showPreview(photoB64);
+      };
       img.onload=function(){
         var c=document.createElement('canvas');
         var maxW=800;
@@ -461,7 +473,15 @@ function handlePhoto(input){
         if(w>maxW){h=h*(maxW/w);w=maxW}
         c.width=w;c.height=h;
         c.getContext('2d').drawImage(img,0,0,w,h);
-        photoB64=c.toDataURL('image/jpeg',0.55);
+        photoB64=c.toDataURL('image/jpeg',0.5);
+        // If still huge (>500KB b64), compress harder
+        if(photoB64.length>500000){
+          maxW=600;w=img.width;h=img.height;
+          if(w>maxW){h=h*(maxW/w);w=maxW}
+          c.width=w;c.height=h;
+          c.getContext('2d').drawImage(img,0,0,w,h);
+          photoB64=c.toDataURL('image/jpeg',0.35);
+        }
         showPreview(photoB64);
       };
       img.src=e.target.result;
@@ -908,13 +928,19 @@ class IntakeHandler(BaseHTTPRequestHandler):
             evt_id = path.split("/photo/", 1)[1]
             b64 = PHOTO_STORE.get(evt_id)
             if b64:
+                # Detect MIME type from data URL prefix, default to jpeg
+                content_type = "image/jpeg"
+                if b64.startswith("data:"):
+                    header = b64.split(",", 1)[0]  # e.g. data:image/png;base64
+                    if "/" in header:
+                        content_type = header.split(":")[1].split(";")[0]
                 # Strip data URL prefix if present
                 if "," in b64:
                     b64 = b64.split(",", 1)[1]
                 import base64
                 try:
                     img_bytes = base64.b64decode(b64)
-                    self._send(200, "image/jpeg", img_bytes)
+                    self._send(200, content_type, img_bytes)
                 except Exception:
                     self._send(404, "text/plain", b"Invalid photo data")
             else:
