@@ -1,78 +1,152 @@
 # ⬡ MACS — Multi-Agent Crisis Response System
 
-> A non-hierarchical swarm of autonomous AI agents (MACs) for humanitarian crisis response in conflict zones.
-> No coordinators. No bottlenecks. Just emergence.
+> A non-hierarchical swarm of autonomous AI agents for humanitarian crisis response.
+> No coordinators. No bottlenecks. No single point of failure. Just emergence.
 
-Built for the **Epiminds Hackathon 2026**.
+**Epiminds Hackathon 2026** — Swarm Intelligence Track
 
-Run book for live judging/demo flow: [RUNBOOK.md](RUNBOOK.md)
+📐 Architecture: [ARCHITECTURE.md](ARCHITECTURE.md)
+🎤 Demo Script: [PITCH.md](PITCH.md)
+
+---
+
+## Live System
+
+| Resource | URL |
+|----------|-----|
+| 🌐 Intake Form | https://macs-demo.duckdns.org |
+| 📡 API Base | https://macs-demo.duckdns.org/status |
+| 🔌 WebSocket | wss://macs-demo.duckdns.org/ws |
+| ☁️ Hosting | GCP Compute Engine (us-central1-a) |
+| 🔒 TLS | Let's Encrypt via Caddy (auto-renewing) |
 
 ---
 
 ## Quick Start
 
-### Mock mode (no API key needed)
+### Live mode (Gemini 3.1 Flash + real-world data)
+
+```bash
+cd backend
+pip install -r requirements.txt
+GOOGLE_API_KEY=... python main.py --live --ext-feeds --area stockholm --feed-interval 120
+```
+
+### Mock mode (no API key needed — keyword-based reasoning)
+
 ```bash
 cd backend
 pip install -r requirements.txt
 python main.py
 ```
 
-### Live mode (Gemini 3.1 Flash)
-```bash
-GOOGLE_API_KEY=... GEMINI_MODEL=gemini-3.1-flash-lite-preview python main.py --live
-```
+### Dashboard (legacy React — now handled by Lovable teammate)
 
-### Live mode + real-world scoped feeds (Stockholm / Sweden / Iran)
 ```bash
-GOOGLE_API_KEY=... python main.py --live --ext-feeds --area stockholm --feed-interval 120
-```
-
-External feeds currently integrated:
-- USGS earthquake feed
-- Open-Meteo weather feed (`WEATHER_STATUS` + `WEATHER_ALERT`)
-- NASA EONET open hazard events (`NATURAL_HAZARD_EVENT`)
-
-### Dashboard
-```bash
-cd frontend
-npm install
-npm run dev
-# → http://localhost:3000
+cd frontend && npm install && npm run dev
 ```
 
 ### Docker
+
 ```bash
 GOOGLE_API_KEY=... GEMINI_MODEL=gemini-3.1-flash-lite-preview docker compose up
-# Dashboard → http://localhost:3000
-# WS server → ws://localhost:8765
 ```
-
-> Optional fallback: set `ANTHROPIC_API_KEY` if you want to run Claude instead.
 
 ---
 
-## CLI Controls
+## What Is MACS?
 
+**MACS** = Multi-Agent Crisis Response System
+
+Five autonomous AI agents (**MACs**), each owning a crisis domain, coordinate through a shared append-only bulletin board. No agent talks to any other agent. They read the environment, reason independently, and post decisions back. Coordination is emergent — like an ant colony.
+
+### The Five Agents
+
+| Agent | Domain | What It Does |
+|-------|--------|-------------|
+| MEDIC | Medical | Triage, hospital capacity, blood supply, casualty routing |
+| LOGISTICS | Supply Chain | Convoy routes, supply priorities, fuel, aid distribution |
+| POWER | Infrastructure | Grid management, generators, rolling blackouts |
+| COMMS | Communications | Mesh networks, relay nodes, external coordination |
+| EVAC | Evacuation | Route safety, shelters, civilian transport |
+
+### Three-Layer Validation Pipeline
+
+Every piece of intelligence is tagged by source and cross-referenced:
+
+| Layer | Source | Trust Level | Weight |
+|-------|--------|------------|--------|
+| **SENSOR** | USGS seismic, Open-Meteo weather | Ground truth | 0.45 |
+| **API** | NASA EONET, govt alerts | Institutional truth | 0.35 |
+| **CROWD** | Citizen field reports + photos | Human truth (needs corroboration) | 0.15 |
+
+The **corroboration engine** cross-references CROWD reports against SENSOR + API events in a 10-minute sliding window. Multi-layer confirmation = confidence boost. No corroboration = agents treat it cautiously.
+
+---
+
+## API Reference
+
+**Base**: `https://macs-demo.duckdns.org`
+
+### GET
+
+| Endpoint | Description |
+|----------|-------------|
+| `/status` | Event counts by domain and severity |
+| `/events` | All events (newest first), all layers |
+| `/agents` | Agent status: online/offline, last action, domain |
+| `/world-state` | Scenario metrics: hospital %, grid sectors, convoy delays |
+| `/layers` | Event counts per source layer (SENSOR/API/CROWD/AGENT/SYSTEM) |
+| `/reports` | CROWD-layer citizen reports only |
+| `/photo/<id>` | Photo evidence for a report (base64 JPEG) |
+
+### POST
+
+| Endpoint | Body | Description |
+|----------|------|-------------|
+| `/report` | multipart/form-data | Submit citizen field report (with photo + location) |
+| `/validate` | `{"event_id", "reporter_id"}` | Cross-validate an existing event |
+| `/control` | `{"action": "kill\|revive\|list\|inject_event"}` | System control |
+
+### WebSocket
+
+```javascript
+const ws = new WebSocket("wss://macs-demo.duckdns.org/ws");
+ws.onmessage = (msg) => {
+  const data = JSON.parse(msg.data);
+  // data.type === "bulletin"
+  // data.events === [{id, timestamp, source, event_type, domain, severity, source_layer, payload, tags}]
+};
 ```
-kill MEDIC       — simulate MAC failure (live demo moment)
-revive MEDIC     — bring MAC back online
-state            — print bulletin board stats
-world            — print shared world state snapshot
-quit             — stop MACS
-```
 
-## Remote Control API (service mode)
+---
 
-When running as a daemon/systemd (no interactive CLI), use:
+## Control API
+
+For live demos — kill/revive agents, inject events:
 
 ```bash
-curl -X POST http://<host>:8766/control -H 'Content-Type: application/json' -d '{"action":"kill","agent":"MEDIC"}'
-curl -X POST http://<host>:8766/control -H 'Content-Type: application/json' -d '{"action":"revive","agent":"MEDIC"}'
-curl -X POST http://<host>:8766/control -H 'Content-Type: application/json' -d '{"action":"list"}'
+# Kill an agent (demonstrates resilience)
+curl -X POST https://macs-demo.duckdns.org/control \
+  -H 'Content-Type: application/json' \
+  -d '{"action":"kill","agent":"MEDIC"}'
+
+# Revive it (demonstrates recovery)
+curl -X POST https://macs-demo.duckdns.org/control \
+  -d '{"action":"revive","agent":"MEDIC"}'
+
+# List agents
+curl -X POST https://macs-demo.duckdns.org/control \
+  -d '{"action":"list"}'
+
+# Inject a crisis event
+curl -X POST https://macs-demo.duckdns.org/control \
+  -d '{"action":"inject_event","event_type":"CRISIS_ALERT","severity":"CRITICAL","message":"Chemical spill at zone 5"}'
 ```
 
-Optional auth: set `MACS_CONTROL_TOKEN` and pass `"token":"..."` in JSON.
+Optional auth: set `MACS_CONTROL_TOKEN` env var and pass `"token":"..."` in JSON body.
+
+---
 
 ## Scenarios
 
@@ -80,64 +154,66 @@ Optional auth: set `MACS_CONTROL_TOKEN` and pass `"token":"..."` in JSON.
 python main.py --scenario cascade      # Hospital cascade (default)
 python main.py --scenario blackout     # City-wide power failure
 python main.py --scenario displacement # Mass civilian displacement
-python main.py --list-scenarios
-python main.py --live --ext-feeds --area iran
+python main.py --list-scenarios        # Show all available
 ```
 
 ---
 
-## What is a MAC?
+## External Data Feeds
 
-A **MAC** (Multi-Agent Crisis response unit) is a single autonomous agent that:
-- Owns one domain (MEDICAL, LOGISTICS, POWER, COMMS, or EVACUATION)
-- Reads the shared bulletin board continuously
-- Reasons independently about whether to act
-- Posts its decisions back to the board
+Live real-world data pulled every 120 seconds:
 
-MACs never talk to each other directly. **MACS** is the collective system.
+| Source | Type | Layer |
+|--------|------|-------|
+| USGS Earthquake API | Seismic activity (mag, depth, location) | SENSOR |
+| Open-Meteo | Weather (temp, wind, precipitation, alerts) | SENSOR |
+| NASA EONET | Hazards (volcanoes, wildfires, floods, storms) | API |
 
----
-
-## Architecture
-
-See [ARCHITECTURE.md](ARCHITECTURE.md) for the full design doc.
-
-**tldr**: 5 MACs. 1 append-only bulletin board. No coordinator.
-Each MAC perceives → reasons → acts. Coordination emerges from the shared environment (stigmergy).
-
-```
-MEDIC ──┐
-LOGIST──┤  read/write   ┌──────────────┐   WebSocket   ┌──────────┐
-POWER ──┼──────────────▶│ Bulletin     │──────────────▶│ React    │
-COMMS ──┤               │ Board        │               │ Dashboard│
-EVAC ───┘               └──────────────┘               └──────────┘
-```
+Scoped by `--area` flag: `stockholm`, `sweden`, `iran`, or custom coordinates.
 
 ---
 
-## File Structure
+## Project Structure
 
 ```
 macs/
 ├── backend/
-│   ├── main.py           # Entry point + CLI
-│   ├── shared_state.py   # Bulletin board (append-only event log + WS broadcast)
-│   ├── agent.py          # MAC base class (perceive→reason→act loop)
-│   ├── personas.py       # 5 MACs: MEDIC, LOGISTICS, POWER, COMMS, EVAC
-│   ├── scenarios.py      # Crisis scenarios with timed event injection
-│   ├── ws_server.py      # WebSocket server for dashboard
+│   ├── main.py              # Entry — wires everything together
+│   ├── shared_state.py      # Bulletin board: append-only log + WS broadcast
+│   ├── agent.py             # MAC loop: perceive → reason → act
+│   ├── personas.py          # 5 agent personas + stigmergic protocol
+│   ├── verifier.py          # Three-layer validator + corroboration engine
+│   ├── intake_server.py     # Citizen form + all API endpoints
+│   ├── scenarios.py         # Crisis scenario timelines
+│   ├── world_state.py       # Scenario metric tracking + emission
+│   ├── external_feeds.py    # USGS / Open-Meteo / EONET integration
+│   ├── ws_server.py         # WebSocket server
 │   └── requirements.txt
-├── frontend/
-│   ├── src/
-│   │   ├── App.jsx       # Dashboard UI (MAC status, live feed, emergence graph)
-│   │   ├── useSwarm.js   # WebSocket hook
-│   │   └── index.css
-│   ├── index.html
-│   └── package.json
-├── docker/
-│   ├── Dockerfile.agent
-│   └── Dockerfile.dashboard
-├── docker-compose.yml
-├── ARCHITECTURE.md       # Submission doc
-└── README.md
+├── frontend/                # Legacy React dashboard
+├── docker/                  # Container configs
+├── ARCHITECTURE.md          # Full technical architecture
+├── PITCH.md                 # Demo presentation script
+└── README.md                # ← This file
 ```
+
+---
+
+## What Makes This Different
+
+| Feature | Why It Matters |
+|---------|---------------|
+| **Stigmergy** | Not just "agents that talk" — agents that coordinate without talking. The environment IS the protocol. |
+| **Three-layer validation** | Not just "chatbots responding" — cross-referencing sensors, institutions, and citizens before acting. |
+| **Kill/revive** | Not just "multiple agents" — genuinely flat. Prove it by killing any agent live. |
+| **Real sensor data** | Not just simulated — USGS, weather, and NASA data flowing in real-time. |
+| **Citizen intake** | Not just an API — a full mobile form with photo evidence, maps, and cross-validation. |
+| **Event ID citations** | Not just parallel responses — agents reference each other's work by ID. True collaboration. |
+
+---
+
+## Team
+
+| Role | Person | Handles |
+|------|--------|---------|
+| Backend + Architecture | Prince | Agent system, validation pipeline, APIs, infrastructure |
+| Frontend Dashboard | [Lovable teammate] | Ops center UI consuming the API |
