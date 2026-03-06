@@ -43,26 +43,32 @@ FORM_HTML = """<!DOCTYPE html>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>MACS Field Report</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-body{background:#0d1117;color:#e5e7eb;font-family:'Courier New',monospace;
-     min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:16px 12px}
-.hdr{display:flex;align-items:center;gap:10px;width:100%;max-width:520px;margin-bottom:12px}
-.logo{font-size:20px;font-weight:800;color:#e5e7eb;letter-spacing:-0.5px}
-.badge{font-size:10px;padding:2px 8px;border-radius:9999px;background:#052e16;
-       color:#4ade80;border:1px solid #166534;letter-spacing:1px}
-.notif-bar{width:100%;max-width:520px;background:#1a1a2e;border:1px solid #16213e;
-           border-radius:8px;padding:10px 14px;margin-bottom:12px;display:flex;
-           align-items:center;gap:10px;font-size:11px;cursor:pointer;transition:all .2s}
-.notif-bar:hover{border-color:#f97316}
+body{background:#0a0e17;color:#e5e7eb;font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+     min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:20px 16px;
+     background-image:radial-gradient(ellipse at top,rgba(249,115,22,0.03) 0%,transparent 50%)}
+.hdr{display:flex;align-items:center;gap:12px;width:100%;max-width:520px;margin-bottom:16px}
+.logo{font-size:22px;font-weight:800;color:#f0f0f0;letter-spacing:-0.5px;display:flex;align-items:center;gap:8px}
+.badge{font-size:10px;padding:3px 10px;border-radius:9999px;background:rgba(5,46,22,0.6);
+       color:#4ade80;border:1px solid rgba(22,101,52,0.5);letter-spacing:1.5px;font-weight:600}
+.notif-bar{width:100%;max-width:520px;background:rgba(26,26,46,0.5);border:1px solid rgba(22,33,62,0.5);
+           border-radius:10px;padding:12px 16px;margin-bottom:14px;display:flex;
+           align-items:center;gap:10px;font-size:12px;cursor:pointer;transition:all .25s;backdrop-filter:blur(8px)}
+.notif-bar:hover{border-color:rgba(249,115,22,0.5);background:rgba(26,26,46,0.7)}
 .notif-bar .dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
-.dot-off{background:#6b7280}.dot-on{background:#4ade80;box-shadow:0 0 6px #4ade80}
+.dot-off{background:#6b7280}.dot-on{background:#4ade80;box-shadow:0 0 8px #4ade80}
 .tabs{display:flex;width:100%;max-width:520px;gap:0;margin-bottom:14px}
-.tab{flex:1;padding:10px;text-align:center;font-size:11px;font-weight:700;
-     letter-spacing:1px;cursor:pointer;background:#111827;border:1px solid #1f2937;
-     color:#6b7280;transition:all .2s;text-transform:uppercase;position:relative}
-.tab:first-child{border-radius:6px 0 0 6px}.tab:last-child{border-radius:0 6px 6px 0}
-.tab.active{background:#1f2937;color:#f97316;border-color:#f97316}
+.tab{flex:1;padding:12px;text-align:center;font-size:11px;font-weight:600;
+     letter-spacing:1px;cursor:pointer;background:rgba(17,24,39,0.5);border:1px solid rgba(31,41,55,0.6);
+     color:#6b7280;transition:all .25s;text-transform:uppercase;position:relative;
+     display:flex;align-items:center;justify-content:center;gap:6px}
+.tab:first-child{border-radius:10px 0 0 10px}.tab:last-child{border-radius:0 10px 10px 0}
+.tab.active{background:rgba(31,41,55,0.8);color:#f97316;border-color:rgba(249,115,22,0.5)}
+.tab:hover:not(.active){background:rgba(31,41,55,0.4)}
 .tab .pulse{position:absolute;top:6px;right:8px;width:8px;height:8px;
             border-radius:50%;background:#ef4444;display:none}
 .tab .pulse.show{display:block;animation:pulse 1.5s infinite}
@@ -70,35 +76,39 @@ body{background:#0d1117;color:#e5e7eb;font-family:'Courier New',monospace;
 .panel{width:100%;max-width:520px;display:none}.panel.active{display:block}
 label{font-size:10px;color:#6b7280;letter-spacing:1px;text-transform:uppercase;
       display:block;margin-bottom:4px}
-input,textarea,select{width:100%;background:#111827;border:1px solid #1f2937;
-  border-radius:6px;color:#e5e7eb;font-family:'Courier New',monospace;font-size:14px;
-  padding:10px 12px;outline:none;transition:border-color 0.2s;-webkit-appearance:none}
-input:focus,textarea:focus,select:focus{border-color:#f97316}
+input,textarea,select{width:100%;background:rgba(17,24,39,0.6);border:1px solid rgba(31,41,55,0.7);
+  border-radius:10px;color:#e5e7eb;font-family:'Inter',-apple-system,sans-serif;font-size:14px;
+  padding:12px 14px;outline:none;transition:all 0.25s;-webkit-appearance:none}
+input:focus,textarea:focus,select:focus{border-color:#f97316;box-shadow:0 0 0 3px rgba(249,115,22,0.1)}
 textarea{resize:vertical;min-height:110px;line-height:1.5}
 select option{background:#111827}
-.field{margin-bottom:14px}
-.btn{background:#f97316;color:#0d1117;border:none;border-radius:6px;padding:14px;
-     font-family:'Courier New',monospace;font-size:13px;font-weight:800;
-     letter-spacing:1px;cursor:pointer;width:100%;transition:background 0.2s}
-.btn:hover{background:#ea580c}
-.btn:disabled{background:#374151;color:#6b7280;cursor:not-allowed}
-.warn{background:#1c0a0a;border:1px solid #7f1d1d;border-radius:6px;
-      padding:10px 12px;font-size:11px;color:#f87171;line-height:1.5;margin-bottom:14px}
-.note{font-size:10px;color:#4b5563;text-align:center;line-height:1.6;margin-top:12px}
-.photo-area{border:2px dashed #1f2937;border-radius:8px;padding:16px;text-align:center;
-            cursor:pointer;transition:border-color .2s;margin-bottom:14px;position:relative}
-.photo-area:hover{border-color:#f97316}
-.photo-area img{max-width:100%;max-height:200px;border-radius:6px;margin-top:8px}
-.photo-area .ph-label{color:#6b7280;font-size:12px}
-.photo-area .ph-icon{font-size:32px;margin-bottom:6px}
-.photo-remove{position:absolute;top:6px;right:8px;background:#7f1d1d;color:#fff;
-              border:none;border-radius:50%;width:24px;height:24px;cursor:pointer;
-              font-size:14px;line-height:24px;display:none}
+.field{margin-bottom:16px}
+.btn{background:linear-gradient(135deg,#f97316,#ea580c);color:#fff;border:none;border-radius:10px;padding:14px;
+     font-family:'Inter',-apple-system,sans-serif;font-size:14px;font-weight:700;
+     letter-spacing:0.5px;cursor:pointer;width:100%;transition:all 0.25s;
+     box-shadow:0 4px 14px rgba(249,115,22,0.25);display:flex;align-items:center;justify-content:center;gap:8px}
+.btn:hover{background:linear-gradient(135deg,#fb923c,#f97316);transform:translateY(-1px);box-shadow:0 6px 20px rgba(249,115,22,0.35)}
+.btn:disabled{background:#374151;color:#6b7280;cursor:not-allowed;box-shadow:none;transform:none}
+.warn{background:rgba(28,10,10,0.5);border:1px solid rgba(127,29,29,0.4);border-radius:10px;
+      padding:12px 14px;font-size:11px;color:#f87171;line-height:1.6;margin-bottom:14px;
+      display:flex;align-items:flex-start;gap:8px}
+.warn svg{flex-shrink:0;margin-top:1px}
+.note{font-size:10px;color:#4b5563;text-align:center;line-height:1.6;margin-top:14px}
+.photo-area{border:2px dashed rgba(31,41,55,0.7);border-radius:12px;padding:24px;text-align:center;
+            cursor:pointer;transition:all .25s;margin-bottom:16px;position:relative;background:rgba(17,24,39,0.2)}
+.photo-area:hover{border-color:rgba(249,115,22,0.5);background:rgba(17,24,39,0.4)}
+.photo-area img{max-width:100%;max-height:200px;border-radius:8px;margin-top:10px}
+.photo-area .ph-label{color:#6b7280;font-size:12px;margin-top:4px}
+.photo-area .ph-icon{margin-bottom:4px;line-height:1}
+.photo-remove{position:absolute;top:8px;right:10px;background:rgba(127,29,29,0.8);color:#fff;
+              border:none;border-radius:50%;width:28px;height:28px;cursor:pointer;
+              display:none;align-items:center;justify-content:center}
 /* Feed */
 .feed-empty{text-align:center;padding:40px 16px;color:#4b5563;font-size:12px}
-.report-card{background:#111827;border:1px solid #1f2937;border-radius:8px;
-             padding:14px;margin-bottom:10px;transition:border-color .2s}
-.report-card.needs-val{border-color:#f59e0b;animation:glow 2s infinite}
+.report-card{background:rgba(17,24,39,0.5);border:1px solid rgba(31,41,55,0.5);border-radius:12px;
+             padding:16px;margin-bottom:12px;transition:all .25s;backdrop-filter:blur(8px)}
+.report-card:hover{border-color:rgba(249,115,22,0.15)}
+.report-card.needs-val{border-color:rgba(245,158,11,0.5);animation:glow 2s infinite}
 @keyframes glow{0%,100%{box-shadow:none}50%{box-shadow:0 0 8px rgba(249,115,22,.2)}}
 .rc-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
 .rc-id{font-size:10px;color:#6b7280}.rc-domain{font-size:11px;font-weight:700;
@@ -119,26 +129,27 @@ select option{background:#111827}
 .val-badge{background:#1f2937;color:#e5e7eb}
 .needs-tag{background:#78350f;color:#fbbf24;font-weight:700;animation:pulse 1.5s infinite}
 .sev-CRITICAL{color:#ef4444}.sev-HIGH{color:#f59e0b}.sev-MEDIUM{color:#60a5fa}.sev-LOW{color:#9ca3af}
-.validate-btn{width:100%;padding:10px;border-radius:6px;font-family:'Courier New',monospace;
-              font-size:12px;font-weight:700;cursor:pointer;letter-spacing:.5px;
-              transition:all .2s;border:1px solid #166534;background:#052e16;color:#4ade80}
+.validate-btn{width:100%;padding:12px;border-radius:8px;font-family:'Inter',-apple-system,sans-serif;
+              font-size:12px;font-weight:600;cursor:pointer;letter-spacing:.3px;
+              transition:all .25s;border:1px solid rgba(22,101,52,0.5);background:rgba(5,46,22,0.4);color:#4ade80;
+              display:flex;align-items:center;justify-content:center;gap:6px}
 .validate-btn:hover{background:#166534;color:#fff}
 .validate-btn:disabled{background:#1f2937;color:#4b5563;border-color:#374151;cursor:default}
 .validate-btn.done{background:#166534;color:#fff;border-color:#4ade80}
 .success-overlay{position:fixed;inset:0;background:rgba(0,0,0,.85);display:flex;
                  flex-direction:column;align-items:center;justify-content:center;
-                 z-index:100;padding:24px;text-align:center}
-.success-overlay .big{font-size:56px;margin-bottom:16px}
+                 z-index:100;padding:24px;text-align:center;backdrop-filter:blur(16px)}
+.success-overlay .big{margin-bottom:20px}
 .success-overlay .title{font-size:18px;font-weight:800;color:#4ade80;margin-bottom:8px}
 .success-overlay .detail{font-size:12px;color:#6b7280;line-height:1.8}
 .success-overlay a{color:#f97316;font-size:12px;text-decoration:none;margin-top:24px;display:block}
 .loc-wrap{position:relative}
-.loc-wrap .loc-icon{position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:16px;pointer-events:none;z-index:1}
+.loc-wrap .loc-icon{position:absolute;left:10px;top:50%;transform:translateY(-50%);pointer-events:none;z-index:1;display:flex;align-items:center}
 #loc{padding-left:30px}
 .minimap{width:100%;height:140px;border-radius:8px;border:1px solid #1f2937;margin-top:6px;display:none;overflow:hidden}
 .minimap-feed{width:100%;height:100px;border-radius:6px;margin-bottom:8px}
-.pac-container{background:#111827!important;border:1px solid #1f2937!important;border-radius:0 0 8px 8px!important;
-  font-family:'Courier New',monospace!important;z-index:9999!important;margin-top:-1px!important}
+.pac-container{background:#111827!important;border:1px solid #1f2937!important;border-radius:0 0 10px 10px!important;
+  font-family:'Inter',-apple-system,sans-serif!important;z-index:9999!important;margin-top:-1px!important}
 .pac-item{background:#111827!important;color:#e5e7eb!important;border-top:1px solid #1f2937!important;
   padding:8px 12px!important;cursor:pointer!important;font-size:13px!important;line-height:1.4!important}
 .pac-item:hover{background:#1f2937!important}
@@ -152,30 +163,30 @@ select option{background:#111827}
 </head>
 <body>
 <div class="hdr">
-  <div class="logo">&#x2B21; MACS</div>
+  <div class="logo"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#f97316" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg> MACS</div>
   <div class="badge">FIELD REPORT</div>
 </div>
 
 <div class="notif-bar" id="notifBar" onclick="toggleNotif()">
   <div class="dot dot-off" id="notifDot"></div>
-  <span id="notifText">&#x1F514; Enable live alerts to validate nearby reports</span>
+  <span id="notifText"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg> Enable live alerts to validate nearby reports</span>
 </div>
 
 <div class="tabs">
-  <div class="tab active" onclick="showTab('submit')" id="tabSubmit">&#x1F4DD; Submit</div>
-  <div class="tab" onclick="showTab('feed')" id="tabFeed">&#x1F4E1; Live Feed <span class="pulse" id="feedPulse"></span></div>
+  <div class="tab active" onclick="showTab('submit')" id="tabSubmit"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Submit</div>
+  <div class="tab" onclick="showTab('feed')" id="tabFeed"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"/></svg> Live Feed <span class="pulse" id="feedPulse"></span></div>
 </div>
 
 <!-- ── SUBMIT PANEL ─────────────────────────────────────────── -->
 <div class="panel active" id="panelSubmit">
   <form id="f">
-    <div class="warn">&#9888; Submit only verified field observations. False reports waste emergency resources.</div>
+    <div class="warn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> Submit only verified field observations. False reports waste emergency resources.</div>
 
     <div class="photo-area" id="photoArea" onclick="document.getElementById('photoInput').click()">
-      <div class="ph-icon">&#x1F4F7;</div>
+      <div class="ph-icon"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></div>
       <div class="ph-label">Tap to add photo / video evidence</div>
       <img id="photoPreview" style="display:none">
-      <button type="button" class="photo-remove" id="photoRemove" onclick="removePhoto(event)">&#x2715;</button>
+      <button type="button" class="photo-remove" id="photoRemove" onclick="removePhoto(event)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
       <input type="file" id="photoInput" accept="image/*,video/*" capture="environment"
              style="display:none" onchange="handlePhoto(this)">
     </div>
@@ -185,9 +196,9 @@ select option{background:#111827}
       <textarea id="msg" placeholder="Describe what you see &#8212; casualties, blocked routes, infrastructure damage, missing services..." required></textarea>
     </div>
     <div class="field">
-      <label>&#x1F4CD; Location (auto-detected &#8226; type to search)</label>
+      <label><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg> Location (auto-detected &#8226; type to search)</label>
       <div class="loc-wrap">
-        <span class="loc-icon">&#x1F4CD;</span>
+        <span class="loc-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f97316" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></span>
         <input type="text" id="loc" placeholder="Detecting your location..." autocomplete="off">
       </div>
       <div class="loc-detected" id="locDetected"></div>
@@ -203,7 +214,7 @@ select option{background:#111827}
         <option value="CRITICAL">Critical &#8212; immediate life threat</option>
       </select>
     </div>
-    <button class="btn" type="submit" id="btn">SUBMIT FIELD REPORT &#8594;</button>
+    <button class="btn" type="submit" id="btn">SUBMIT FIELD REPORT <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></button>
     <div class="note">Reports are AI-verified and cross-referenced against sensor data.<br>
     Other citizens nearby can corroborate your report to boost confidence.</div>
   </form>
@@ -230,6 +241,19 @@ var geoWatchId = null;
 var NOTIFY_RADIUS_KM = 5; // proximity radius for notifications
 var feedWs = null;
 var feedWsRetry = 0;
+
+// ── Inline SVG icons for dynamic content
+var IC={
+target:'<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="vertical-align:-1px"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>',
+warn:'<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="vertical-align:-1px"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+link:'<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="vertical-align:-1px"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>',
+check:'<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="vertical-align:-1px"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>',
+eye:'<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="vertical-align:-1px"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>',
+pin:'<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="vertical-align:-1px"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>',
+shield:'<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="vertical-align:-1px"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>',
+arrow:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="vertical-align:-2px"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>'
+};
+var SUBMIT_BTN='SUBMIT FIELD REPORT '+IC.arrow;
 
 // ── Haversine distance (km) between two lat/lng pairs
 function haversineKm(lat1,lon1,lat2,lon2){
@@ -444,9 +468,9 @@ function handlePhoto(input){
 function showPreview(src){
   var p=document.getElementById('photoPreview');
   p.src=src;p.style.display='block';
-  document.getElementById('photoRemove').style.display='block';
+  document.getElementById('photoRemove').style.display='flex';
   document.querySelector('.ph-icon').style.display='none';
-  document.querySelector('.ph-label').textContent='Photo attached \\u2714';
+  document.querySelector('.ph-label').innerHTML='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4ade80" stroke-width="2" stroke-linecap="round" style="vertical-align:-2px"><polyline points="20 6 9 17 4 12"/></svg> Photo attached';
 }
 function removePhoto(e){
   e.stopPropagation();photoB64=null;photoMime=null;
@@ -485,11 +509,11 @@ function updateNotifUI(){
   if(notifEnabled){
     dot.className='dot dot-on';
     var locStatus=userLat!==null?' \\u2022 GPS active':'  \\u2022 GPS pending';
-    txt.innerHTML='\\u2705 Live alerts ON ('+NOTIFY_RADIUS_KM+'km radius)'+locStatus;
+    txt.innerHTML='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4ade80" stroke-width="2" stroke-linecap="round" style="vertical-align:-2px"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> Live alerts ON ('+NOTIFY_RADIUS_KM+'km radius)'+locStatus;
     bar.style.borderColor='#166534';
   } else {
     dot.className='dot dot-off';
-    txt.innerHTML='\\uD83D\\uDD14 Enable live alerts to validate nearby reports';
+    txt.innerHTML='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg> Enable live alerts to validate nearby reports';
     bar.style.borderColor='#16213e';
   }
 }
@@ -552,7 +576,7 @@ document.getElementById('f').addEventListener('submit',async function(e){
     if(d.accepted){
       var overlay=document.createElement('div');
       overlay.className='success-overlay';
-      overlay.innerHTML='<div class="big">\\u2713</div>'
+      overlay.innerHTML='<div class="big"><svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#4ade80" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div>'
         +'<div class="title">REPORT ACCEPTED</div>'
         +'<div class="detail">'
         +'Domain: <span style="color:#e5e7eb">'+d.domain+'</span><br>'
@@ -561,17 +585,17 @@ document.getElementById('f').addEventListener('submit',async function(e){
         +(d.corroboration_score>0?'Corroboration: <span style="color:#4ade80">'+Math.round(d.corroboration_score*100)+'%</span><br>':'')
         +(d.event_id?'Event ID: <span style="color:#9ca3af">'+d.event_id+'</span>':'')
         +'</div>'
-        +'<a href="javascript:void(0)" onclick="this.parentElement.remove()">\\u2190 Submit another report</a>'
+        +'<a href="javascript:void(0)" onclick="this.parentElement.remove()">&larr; Submit another report</a>'
         +'<a href="javascript:void(0)" onclick="this.parentElement.remove();showTab(\\'feed\\')" style="margin-top:8px">'
-        +'View Live Feed \\u2192</a>';
+        +'View Live Feed &rarr;</a>';
       document.body.appendChild(overlay);
       document.getElementById('f').reset();photoB64=null;removePhoto({stopPropagation:function(){}});
     } else {
-      btn.textContent='SUBMIT FIELD REPORT \\u2192';btn.disabled=false;
+      btn.innerHTML=SUBMIT_BTN;btn.disabled=false;
       alert('Not accepted: '+(d.reason||'Please add more detail and try again.'));
     }
   }catch(err){
-    btn.textContent='SUBMIT FIELD REPORT \\u2192';btn.disabled=false;
+    btn.innerHTML=SUBMIT_BTN;btn.disabled=false;
     alert('Connection error. Please try again.');
   }
 });
@@ -583,7 +607,7 @@ async function loadFeed(){
     var r=await fetch('/reports');
     var reports=await r.json();
     var container=document.getElementById('feedList');
-    if(!reports.length){container.innerHTML='<div class="feed-empty">No citizen reports yet. Be the first! \\uD83D\\uDCE1</div>';return}
+    if(!reports.length){container.innerHTML='<div class="feed-empty"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#4b5563" stroke-width="1.5" stroke-linecap="round" style="display:block;margin:0 auto 8px"><circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"/></svg>No citizen reports yet. Be the first!</div>';return}
     var html='';
     reports.forEach(function(rpt){
       var p=rpt.payload||{};
@@ -603,14 +627,14 @@ async function loadFeed(){
       if(rpt.has_photo){html+='<img class="rc-photo" src="/photo/'+rpt.id+'" loading="lazy">';}
       html+='<div class="rc-msg">'+escHtml(p.message||p.original||'')+'</div>'
         +'<div class="rc-meta">'
-        +'<span class="'+confClass+'">\\uD83C\\uDFAF '+conf+'% confidence</span>'
-        +'<span class="sev-'+rpt.severity+'">\\u26A0 '+rpt.severity+'</span>'
-        +(corrScore>0?'<span class="'+corrClass+'">\\uD83D\\uDD17 Corroborated '+Math.round(corrScore*100)+'%</span>':'')
-        +'<span class="val-badge">\\u2705 '+valCount+' validation'+(valCount!==1?'s':'')+'</span>'
-        +(needsVal?'<span class="needs-tag">\\uD83D\\uDC41 NEEDS VALIDATION</span>':'')
+        +'<span class="'+confClass+'">'+IC.target+' '+conf+'% confidence</span>'
+        +'<span class="sev-'+rpt.severity+'">'+IC.warn+' '+rpt.severity+'</span>'
+        +(corrScore>0?'<span class="'+corrClass+'">'+IC.link+' Corroborated '+Math.round(corrScore*100)+'%</span>':'')
+        +'<span class="val-badge">'+IC.check+' '+valCount+' validation'+(valCount!==1?'s':'')+'</span>'
+        +(needsVal?'<span class="needs-tag">'+IC.eye+' NEEDS VALIDATION</span>':'')
         +'</div>';
       if(p.location&&p.location!=='unknown'){
-        html+='<div style="font-size:10px;color:#6b7280;margin-bottom:8px">\\uD83D\\uDCCD '+escHtml(p.location)+'</div>';
+        html+='<div style="font-size:10px;color:#6b7280;margin-bottom:8px">'+IC.pin+' '+escHtml(p.location)+'</div>';
         // Static Google Map for geolocated reports
         if(p.geo&&p.geo.lat&&__GMAPS_KEY__){
           html+='<img class="minimap-feed" loading="lazy" src="https://maps.googleapis.com/maps/api/staticmap?center='
@@ -623,9 +647,9 @@ async function loadFeed(){
       }
       if(!isValidated){
         html+='<button class="validate-btn" onclick="validateReport(\\''+rpt.id+'\\',this)">'
-          +'\\u2714 I CAN CONFIRM THIS REPORT</button>';
+          +IC.shield+' I CAN CONFIRM THIS REPORT</button>';
       } else {
-        html+='<button class="validate-btn done" disabled>\\u2714 YOU VALIDATED THIS</button>';
+        html+='<button class="validate-btn done" disabled>'+IC.shield+' YOU VALIDATED THIS</button>';
       }
       html+='</div>';
     });
@@ -641,11 +665,11 @@ async function validateReport(id,btn){
     var d=await r.json();
     if(d.ok){
       validated[id]=true;localStorage.setItem('macs_validated',JSON.stringify(validated));
-      btn.className='validate-btn done';btn.textContent='\\u2714 YOU VALIDATED THIS';
+      btn.className='validate-btn done';btn.innerHTML=IC.shield+' YOU VALIDATED THIS';
       loadFeed();
-    } else {btn.textContent='\\u2714 I CAN CONFIRM THIS REPORT';btn.disabled=false;
+    } else {btn.innerHTML=IC.shield+' I CAN CONFIRM THIS REPORT';btn.disabled=false;
             if(d.reason)alert(d.reason)}
-  }catch(e){btn.textContent='\\u2714 I CAN CONFIRM THIS REPORT';btn.disabled=false}
+  }catch(e){btn.innerHTML=IC.shield+' I CAN CONFIRM THIS REPORT';btn.disabled=false}
 }
 
 function escHtml(s){var d=document.createElement('div');d.textContent=s;return d.innerHTML}
