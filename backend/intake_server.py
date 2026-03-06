@@ -225,6 +225,101 @@ var photoB64 = null;
 var photoMime = null;
 var geoLat = null, geoLng = null;
 var miniMap = null, miniMarker = null, placesAC = null;
+var userLat = null, userLng = null; // continuously tracked position
+var geoWatchId = null;
+var NOTIFY_RADIUS_KM = 5; // proximity radius for notifications
+var feedWs = null;
+var feedWsRetry = 0;
+
+// ── Haversine distance (km) between two lat/lng pairs
+function haversineKm(lat1,lon1,lat2,lon2){
+  var R=6371;
+  var dLat=(lat2-lat1)*Math.PI/180;
+  var dLon=(lon2-lon1)*Math.PI/180;
+  var a=Math.sin(dLat/2)*Math.sin(dLat/2)
+    +Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)
+    *Math.sin(dLon/2)*Math.sin(dLon/2);
+  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+
+// ── Continuous geolocation tracking
+function startGeoWatch(){
+  if(!navigator.geolocation)return;
+  if(geoWatchId!==null)return;
+  geoWatchId=navigator.geolocation.watchPosition(
+    function(p){userLat=p.coords.latitude;userLng=p.coords.longitude;},
+    function(){},
+    {enableHighAccuracy:true,maximumAge:30000,timeout:10000}
+  );
+}
+startGeoWatch();
+
+// ── WebSocket for real-time event push
+function connectFeedWs(){
+  var proto=location.protocol==='https:'?'wss:':'ws:';
+  var url=proto+'//'+location.host+'/ws';
+  try{feedWs=new WebSocket(url)}catch(e){return}
+  feedWs.onopen=function(){feedWsRetry=0;};
+  feedWs.onmessage=function(msg){
+    try{
+      var data=JSON.parse(msg.data);
+      // history batch on connect
+      if(data.type==='history'&&Array.isArray(data.events)){
+        data.events.forEach(function(evt){seenIds.add(evt.id)});
+        return;
+      }
+      // single event broadcast
+      var evt=data;
+      if(!evt.id)return;
+      if(seenIds.has(evt.id))return;
+      seenIds.add(evt.id);
+      // proximity notification for CROWD reports
+      if(evt.source_layer==='CROWD'&&evt.event_type==='CITIZEN_INTEL'){
+        handleProximityNotification(evt);
+      }
+      // also notify for nearby HIGH/CRITICAL sensor/system events
+      if((evt.source_layer==='SENSOR'||evt.source_layer==='SYSTEM')
+         &&(evt.severity==='CRITICAL'||evt.severity==='HIGH')){
+        handleProximityNotification(evt);
+      }
+      // pulse the feed tab
+      if(!document.getElementById('panelFeed').classList.contains('active')){
+        document.getElementById('feedPulse').classList.add('show');
+      } else { loadFeed(); }
+    }catch(e){}
+  };
+  feedWs.onclose=function(){
+    feedWs=null;
+    var delay=Math.min(2000*Math.pow(2,feedWsRetry),30000);
+    feedWsRetry++;
+    setTimeout(connectFeedWs,delay);
+  };
+  feedWs.onerror=function(){if(feedWs)feedWs.close();};
+}
+connectFeedWs();
+
+function handleProximityNotification(evt){
+  if(!notifEnabled)return;
+  var p=evt.payload||{};
+  var geo=p.geo;
+  // If no geo on event, still notify (could be non-geolocated report)
+  if(geo&&geo.lat&&geo.lng&&userLat!==null){
+    var dist=haversineKm(userLat,userLng,geo.lat,geo.lng);
+    if(dist>NOTIFY_RADIUS_KM)return; // too far away
+    sendNotification({
+      id:evt.id,domain:evt.domain,severity:evt.severity,
+      message:(p.message||'').substring(0,120),
+      distance:dist,hasGeo:true,source_layer:evt.source_layer
+    });
+  } else if(!geo||!geo.lat){
+    // No geo on report — send generic notification
+    sendNotification({
+      id:evt.id,domain:evt.domain,severity:evt.severity,
+      message:(p.message||'').substring(0,120),
+      distance:null,hasGeo:false,source_layer:evt.source_layer
+    });
+  }
+}
 
 // ── Google Maps initialization (called by script callback)
 function initGMaps(){
@@ -365,33 +460,75 @@ function removePhoto(e){
 // ── Notifications
 function toggleNotif(){
   if(notifEnabled){notifEnabled=false;updateNotifUI();return}
-  if(!('Notification' in window)){alert('Notifications not supported');return}
-  Notification.requestPermission().then(function(p){
-    notifEnabled=(p==='granted');updateNotifUI();
+  if(!('Notification' in window)){alert('Browser notifications not supported on this device');return}
+  Notification.requestPermission().then(function(perm){
+    if(perm==='granted'){
+      notifEnabled=true;
+      startGeoWatch();
+      // Show confirmation notification
+      try{new Notification('\\u2705 MACS Alerts Active',{
+        body:'You\'ll be notified when crisis reports appear within '+NOTIFY_RADIUS_KM+'km of you.',
+        icon:'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>\\u2B21</text></svg>',
+        tag:'macs-confirm'
+      })}catch(e){}
+    } else {
+      notifEnabled=false;
+      alert('Please allow notifications to receive nearby crisis alerts.');
+    }
+    updateNotifUI();
   });
 }
 function updateNotifUI(){
   var dot=document.getElementById('notifDot');
   var txt=document.getElementById('notifText');
+  var bar=document.getElementById('notifBar');
   if(notifEnabled){
     dot.className='dot dot-on';
-    txt.innerHTML='\\u2705 Live alerts ON \\u2014 you\\'ll be notified of nearby reports';
+    var locStatus=userLat!==null?' \\u2022 GPS active':'  \\u2022 GPS pending';
+    txt.innerHTML='\\u2705 Live alerts ON ('+NOTIFY_RADIUS_KM+'km radius)'+locStatus;
+    bar.style.borderColor='#166534';
   } else {
     dot.className='dot dot-off';
     txt.innerHTML='\\uD83D\\uDD14 Enable live alerts to validate nearby reports';
+    bar.style.borderColor='#16213e';
   }
 }
+// Refresh notification UI when GPS locks
+var _notifUiTimer=setInterval(function(){if(notifEnabled)updateNotifUI()},5000);
+
 function sendNotification(report){
   if(!notifEnabled)return;
+  // Build title based on source layer
+  var layerEmoji={'CROWD':'\\uD83D\\uDC64','SENSOR':'\\uD83D\\uDCE1','API':'\\uD83C\\uDF10','SYSTEM':'\\u26A1','AGENT':'\\uD83E\\uDD16'};
+  var emoji=layerEmoji[report.source_layer]||'\\uD83D\\uDEA8';
+  var sevEmoji={'CRITICAL':'\\uD83D\\uDD34','HIGH':'\\uD83D\\uDFE0','MEDIUM':'\\uD83D\\uDFE1','LOW':'\\uD83D\\uDFE2'};
+  var sev=sevEmoji[report.severity]||'';
+  var title=emoji+' '+sev+' '+report.domain+' — '+(report.source_layer==='CROWD'?'Citizen Report':'Alert');
+
+  // Build body with distance if available
+  var body=report.message;
+  if(report.hasGeo&&report.distance!==null){
+    var distStr=report.distance<1
+      ? Math.round(report.distance*1000)+'m away'
+      : report.distance.toFixed(1)+'km away';
+    body='\\uD83D\\uDCCD '+distStr+'\\n'+body;
+  }
+  if(report.source_layer==='CROWD'){
+    body+='\\n\\u2714\\uFE0F Tap to validate this report';
+  }
+
   try{
-    var n=new Notification('\\uD83D\\uDEA8 MACS: New '+report.domain+' report',{
-      body:report.message.substring(0,100)+'...',
+    var n=new Notification(title,{
+      body:body,
       icon:'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>\\u2B21</text></svg>',
-      vibrate:[200,100,200],
+      vibrate:[200,100,200,100,300],
       tag:'macs-'+report.id,
-      requireInteraction:true
+      requireInteraction:true,
+      silent:false
     });
-    n.onclick=function(){window.focus();showTab('feed');n.close()};
+    n.onclick=function(){window.focus();showTab('feed');loadFeed();n.close()};
+    // Auto-dismiss after 15s
+    setTimeout(function(){n.close()},15000);
   }catch(e){}
 }
 
@@ -457,11 +594,7 @@ async function loadFeed(){
       var needsVal=conf<80&&corrScore<0.3;
       var valCount=rpt.validation_count||0;
       var isValidated=validated[rpt.id]||false;
-      // Notification for new reports
-      if(!seenIds.has(rpt.id)&&rpt.source!=='FIELD_REPORT_'+RID){
-        seenIds.add(rpt.id);
-        if(seenIds.size>1)sendNotification({id:rpt.id,domain:rpt.domain,message:p.message||''});
-      } else { seenIds.add(rpt.id); }
+      seenIds.add(rpt.id);
       html+='<div class="report-card'+(needsVal?' needs-val':'')+'">'
         +'<div class="rc-head">'
         +'<span class="rc-id">'+rpt.id+' \\u2022 '+new Date(rpt.timestamp*1000).toLocaleTimeString()+'</span>'
@@ -517,30 +650,12 @@ async function validateReport(id,btn){
 
 function escHtml(s){var d=document.createElement('div');d.textContent=s;return d.innerHTML}
 
-// Auto-refresh feed every 4s when visible
+// Auto-refresh feed every 5s when visible (WebSocket handles notifications)
 setInterval(function(){
   if(document.getElementById('panelFeed').classList.contains('active'))loadFeed();
-  else checkNewReports();
-},4000);
-
-var lastKnownCount=0;
-async function checkNewReports(){
-  try{
-    var r=await fetch('/reports');var d=await r.json();
-    if(d.length>lastKnownCount&&lastKnownCount>0){
-      document.getElementById('feedPulse').classList.add('show');
-      // Notify for each new report
-      for(var i=lastKnownCount;i<d.length;i++){
-        if(!seenIds.has(d[i].id)){
-          seenIds.add(d[i].id);
-          sendNotification({id:d[i].id,domain:d[i].domain,message:(d[i].payload||{}).message||''});
-        }
-      }
-    }
-    lastKnownCount=d.length;
-  }catch(e){}
-}
-checkNewReports();
+},5000);
+// Initial feed load
+setTimeout(function(){loadFeed()},1000);
 </script>
 </body>
 </html>"""
