@@ -50,7 +50,7 @@ FORM_HTML = """<!DOCTYPE html>
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:#0a0e17;color:#e5e7eb;font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
      min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:20px 16px;
-     background-image:radial-gradient(ellipse at top,rgba(249,115,22,0.03) 0%,transparent 50%)}
+     background-image:radial-gradient(ellipse at top,rgba(6,182,212,0.03) 0%,transparent 50%)}
 .hdr{display:flex;align-items:center;gap:12px;width:100%;max-width:520px;margin-bottom:16px}
 .logo{font-size:22px;font-weight:800;color:#f0f0f0;letter-spacing:-0.5px;display:flex;align-items:center;gap:8px}
 .badge{font-size:10px;padding:3px 10px;border-radius:9999px;background:rgba(5,46,22,0.6);
@@ -58,7 +58,7 @@ body{background:#0a0e17;color:#e5e7eb;font-family:'Inter',-apple-system,BlinkMac
 .notif-bar{width:100%;max-width:520px;background:rgba(26,26,46,0.5);border:1px solid rgba(22,33,62,0.5);
            border-radius:10px;padding:12px 16px;margin-bottom:14px;display:flex;
            align-items:center;gap:10px;font-size:12px;cursor:pointer;transition:all .25s;backdrop-filter:blur(8px)}
-.notif-bar:hover{border-color:rgba(249,115,22,0.5);background:rgba(26,26,46,0.7)}
+.notif-bar:hover{border-color:rgba(6,182,212,0.5);background:rgba(26,26,46,0.7)}
 .notif-bar .dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
 .dot-off{background:#6b7280}.dot-on{background:#4ade80;box-shadow:0 0 8px #4ade80}
 .tabs{display:flex;width:100%;max-width:520px;gap:0;margin-bottom:14px}
@@ -67,7 +67,7 @@ body{background:#0a0e17;color:#e5e7eb;font-family:'Inter',-apple-system,BlinkMac
      color:#6b7280;transition:all .25s;text-transform:uppercase;position:relative;
      display:flex;align-items:center;justify-content:center;gap:6px}
 .tab:first-child{border-radius:10px 0 0 10px}.tab:last-child{border-radius:0 10px 10px 0}
-.tab.active{background:rgba(31,41,55,0.8);color:#f97316;border-color:rgba(249,115,22,0.5)}
+.tab.active{background:rgba(31,41,55,0.8);color:#06B6D4;border-color:rgba(6,182,212,0.5)}
 .tab:hover:not(.active){background:rgba(31,41,55,0.4)}
 .tab .pulse{position:absolute;top:6px;right:8px;width:8px;height:8px;
             border-radius:50%;background:#ef4444;display:none}
@@ -79,15 +79,15 @@ label{font-size:10px;color:#6b7280;letter-spacing:1px;text-transform:uppercase;
 input,textarea,select{width:100%;background:rgba(17,24,39,0.6);border:1px solid rgba(31,41,55,0.7);
   border-radius:10px;color:#e5e7eb;font-family:'Inter',-apple-system,sans-serif;font-size:14px;
   padding:12px 14px;outline:none;transition:all 0.25s;-webkit-appearance:none}
-input:focus,textarea:focus,select:focus{border-color:#f97316;box-shadow:0 0 0 3px rgba(249,115,22,0.1)}
+input:focus,textarea:focus,select:focus{border-color:#06B6D4;box-shadow:0 0 0 3px rgba(6,182,212,0.1)}
 textarea{resize:vertical;min-height:110px;line-height:1.5}
 select option{background:#111827}
 .field{margin-bottom:16px}
-.btn{background:linear-gradient(135deg,#f97316,#ea580c);color:#fff;border:none;border-radius:10px;padding:14px;
+.btn{background:linear-gradient(135deg,#06B6D4,#0891B2);color:#fff;border:none;border-radius:10px;padding:14px;
      font-family:'Inter',-apple-system,sans-serif;font-size:14px;font-weight:700;
      letter-spacing:0.5px;cursor:pointer;width:100%;transition:all 0.25s;
-     box-shadow:0 4px 14px rgba(249,115,22,0.25);display:flex;align-items:center;justify-content:center;gap:8px}
-.btn:hover{background:linear-gradient(135deg,#fb923c,#f97316);transform:translateY(-1px);box-shadow:0 6px 20px rgba(249,115,22,0.35)}
+     box-shadow:0 4px 14px rgba(6,182,212,0.25);display:flex;align-items:center;justify-content:center;gap:8px}
+.btn:hover{background:linear-gradient(135deg,#22D3EE,#06B6D4);transform:translateY(-1px);box-shadow:0 6px 20px rgba(6,182,212,0.35)}
 .btn:disabled{background:#374151;color:#6b7280;cursor:not-allowed;box-shadow:none;transform:none}
 .warn{background:rgba(28,10,10,0.5);border:1px solid rgba(127,29,29,0.4);border-radius:10px;
       padding:12px 14px;font-size:11px;color:#f87171;line-height:1.6;margin-bottom:14px;
@@ -95,9 +95,9 @@ select option{background:#111827}
 .warn svg{flex-shrink:0;margin-top:1px}
 .note{font-size:10px;color:#4b5563;text-align:center;line-height:1.6;margin-top:14px}
 .photo-area{border:2px dashed rgba(31,41,55,0.7);border-radius:12px;padding:24px;text-align:center;
-            cursor:pointer;transition:all .25s;margin-bottom:16px;position:relative;background:rgba(17,24,39,0.2)}
-.photo-area:hover{border-color:rgba(249,115,22,0.5);background:rgba(17,24,39,0.4)}
-.photo-area img{max-width:100%;max-height:200px;border-radius:8px;margin-top:10px}
+            cursor:pointer;transition:all .25s;margin-bottom:16px;position:relative;background:rgba(17,24,39,0.2);overflow:hidden}
+.photo-area:hover{border-color:rgba(6,182,212,0.5);background:rgba(17,24,39,0.4)}
+.photo-area img{max-width:100%;max-height:200px;border-radius:8px;margin-top:10px;object-fit:contain;display:block;margin-left:auto;margin-right:auto}
 .photo-area .ph-label{color:#6b7280;font-size:12px;margin-top:4px}
 .photo-area .ph-icon{margin-bottom:4px;line-height:1}
 .photo-remove{position:absolute;top:8px;right:10px;background:rgba(127,29,29,0.8);color:#fff;
@@ -107,9 +107,9 @@ select option{background:#111827}
 .feed-empty{text-align:center;padding:40px 16px;color:#4b5563;font-size:12px}
 .report-card{background:rgba(17,24,39,0.5);border:1px solid rgba(31,41,55,0.5);border-radius:12px;
              padding:16px;margin-bottom:12px;transition:all .25s;backdrop-filter:blur(8px)}
-.report-card:hover{border-color:rgba(249,115,22,0.15)}
+.report-card:hover{border-color:rgba(6,182,212,0.15)}
 .report-card.needs-val{border-color:rgba(245,158,11,0.5);animation:glow 2s infinite}
-@keyframes glow{0%,100%{box-shadow:none}50%{box-shadow:0 0 8px rgba(249,115,22,.2)}}
+@keyframes glow{0%,100%{box-shadow:none}50%{box-shadow:0 0 8px rgba(6,182,212,.2)}}
 .rc-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
 .rc-id{font-size:10px;color:#6b7280}.rc-domain{font-size:11px;font-weight:700;
   padding:2px 8px;border-radius:9999px;letter-spacing:.5px}
@@ -142,7 +142,7 @@ select option{background:#111827}
 .success-overlay .big{margin-bottom:20px}
 .success-overlay .title{font-size:18px;font-weight:800;color:#4ade80;margin-bottom:8px}
 .success-overlay .detail{font-size:12px;color:#6b7280;line-height:1.8}
-.success-overlay a{color:#f97316;font-size:12px;text-decoration:none;margin-top:24px;display:block}
+.success-overlay a{color:#06B6D4;font-size:12px;text-decoration:none;margin-top:24px;display:block}
 .loc-wrap{position:relative}
 .loc-wrap .loc-icon{position:absolute;left:10px;top:50%;transform:translateY(-50%);pointer-events:none;z-index:1;display:flex;align-items:center}
 #loc{padding-left:30px}
@@ -153,9 +153,9 @@ select option{background:#111827}
 .pac-item{background:#111827!important;color:#e5e7eb!important;border-top:1px solid #1f2937!important;
   padding:8px 12px!important;cursor:pointer!important;font-size:13px!important;line-height:1.4!important}
 .pac-item:hover{background:#1f2937!important}
-.pac-item-query{color:#f97316!important;font-weight:700!important}
+.pac-item-query{color:#06B6D4!important;font-weight:700!important}
 .pac-icon{display:none!important}
-.pac-matched{color:#f97316!important}
+.pac-matched{color:#06B6D4!important}
 .loc-detected{font-size:10px;color:#4ade80;margin-top:4px;display:none}
 </style>
 <script>var __GMAPS_KEY__='%%GMAPS_KEY%%';</script>
@@ -163,7 +163,7 @@ select option{background:#111827}
 </head>
 <body>
 <div class="hdr">
-  <div class="logo"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#f97316" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg> MACS</div>
+  <div class="logo"><img src="/logo" alt="MACS" style="height:32px;border-radius:4px"> MACS</div>
   <div class="badge">FIELD REPORT</div>
 </div>
 
@@ -185,7 +185,7 @@ select option{background:#111827}
     <div class="photo-area" id="photoArea" onclick="document.getElementById('photoInput').click()">
       <div class="ph-icon"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></div>
       <div class="ph-label">Tap to add photo / video evidence</div>
-      <img id="photoPreview" style="display:none">
+      <img id="photoPreview" style="display:none;visibility:hidden" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt="">
       <button type="button" class="photo-remove" id="photoRemove" onclick="removePhoto(event)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
       <input type="file" id="photoInput" accept="image/*,video/*" capture="environment"
              style="display:none" onchange="handlePhoto(this)">
@@ -198,7 +198,7 @@ select option{background:#111827}
     <div class="field">
       <label><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg> Location (auto-detected &#8226; type to search)</label>
       <div class="loc-wrap">
-        <span class="loc-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f97316" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></span>
+        <span class="loc-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#06B6D4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></span>
         <input type="text" id="loc" placeholder="Detecting your location..." autocomplete="off">
       </div>
       <div class="loc-detected" id="locDetected"></div>
@@ -408,7 +408,7 @@ function showMiniMap(lat, lng, title){
     });
     miniMarker = new google.maps.Marker({position:{lat:lat,lng:lng}, map:miniMap,
       title:title, icon:{path:google.maps.SymbolPath.CIRCLE,scale:10,
-        fillColor:'#f97316',fillOpacity:1,strokeColor:'#fff',strokeWeight:2}});
+        fillColor:'#06B6D4',fillOpacity:1,strokeColor:'#fff',strokeWeight:2}});
   } else {
     miniMap.setCenter({lat:lat,lng:lng});
     miniMarker.setPosition({lat:lat,lng:lng});
@@ -471,14 +471,17 @@ function handlePhoto(input){
 }
 function showPreview(src){
   var p=document.getElementById('photoPreview');
-  p.src=src;p.style.display='block';
+  p.onload=function(){p.style.display='block';p.style.visibility='visible';};
+  p.src=src;
   document.getElementById('photoRemove').style.display='flex';
   document.querySelector('.ph-icon').style.display='none';
   document.querySelector('.ph-label').innerHTML='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4ade80" stroke-width="2" stroke-linecap="round" style="vertical-align:-2px"><polyline points="20 6 9 17 4 12"/></svg> Photo attached';
 }
 function removePhoto(e){
   e.stopPropagation();photoB64=null;photoMime=null;
-  document.getElementById('photoPreview').style.display='none';
+  var p=document.getElementById('photoPreview');
+  p.style.display='none';p.style.visibility='hidden';
+  p.src='data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
   document.getElementById('photoRemove').style.display='none';
   document.getElementById('photoInput').value='';
   document.querySelector('.ph-icon').style.display='block';
@@ -704,7 +707,7 @@ async function loadFeed(){
             +p.geo.lat+','+p.geo.lng+'&zoom=14&size=520x100&scale=2&maptype=roadmap'
             +'&style=element:geometry%7Ccolor:0x0d1117&style=element:labels.text.fill%7Ccolor:0x6b7280'
             +'&style=element:labels.text.stroke%7Ccolor:0x0d1117&style=feature:road%7Celement:geometry%7Ccolor:0x1f2937'
-            +'&markers=color:orange%7C'+p.geo.lat+','+p.geo.lng
+            +'&markers=color:0x06B6D4%7C'+p.geo.lat+','+p.geo.lng
             +'&key='+__GMAPS_KEY__+'">';
         }
       }
@@ -906,6 +909,16 @@ class IntakeHandler(BaseHTTPRequestHandler):
                     self._send(404, "text/plain", b"Invalid photo data")
             else:
                 self._send(404, "text/plain", b"No photo for this event")
+
+        elif path == "/logo":
+            logo_path = os.path.join(os.path.dirname(__file__), "..", "asset",
+                                      "WhatsApp Image 2026-03-06 at 13.21.10.jpeg")
+            try:
+                with open(logo_path, "rb") as f:
+                    img_bytes = f.read()
+                self._send(200, "image/jpeg", img_bytes)
+            except FileNotFoundError:
+                self._send(404, "text/plain", b"Logo not found")
 
         else:
             self._send(404, "text/plain", b"Not found")

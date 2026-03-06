@@ -7,3 +7,7 @@ dist/
 .claude/
 backend/.venv/
 =0.8.0
+
+# Demo plan files — keep local, not for judges
+PITCH.md
+RUNBOOK.md
