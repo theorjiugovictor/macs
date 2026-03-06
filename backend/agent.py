@@ -310,14 +310,18 @@ class MAC(ABC):
             self._consecutive_idle += 1
             return
 
-        # Per-agent cooldown: don't act again within 8s of last action.
-        # This prevents machine-gun bursts when many events arrive at once.
+        # Per-agent cooldown: don't act again within 10s of last action.
+        # Only bypass for SYSTEM crisis events (scenario injections, agent failures)
+        # — never bypass for peer ACTION_TAKEN, no matter the severity.
         since_last = now - self._last_act_time
-        if since_last < 8.0 and not any(
-            e.severity in ("CRITICAL", "HIGH") or e.event_type == "AGENT_OFFLINE"
-            for e in relevant
-        ):
-            return
+        if since_last < 10.0:
+            has_system_crisis = any(
+                e.source == "SYSTEM" and e.severity in ("CRITICAL", "HIGH")
+                or e.event_type == "AGENT_OFFLINE"
+                for e in relevant
+            )
+            if not has_system_crisis:
+                return
 
         context = self._build_context()
         decision = self._reason(context, relevant)
