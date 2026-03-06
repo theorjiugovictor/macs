@@ -13,6 +13,7 @@ Resilience: if this process dies, no other MAC's loop breaks.
 from __future__ import annotations
 
 import time
+import random
 import threading
 import json
 import logging
@@ -226,6 +227,8 @@ class MAC(ABC):
         self._last_event_id: str = None
         self._tick_count = 0
         self._mock_response_index = 0
+        self._last_act_time = 0.0
+        self._consecutive_idle = 0
         self._client  = None  # Anthropic
         self._gclient = None  # Gemini
 
@@ -283,10 +286,13 @@ class MAC(ABC):
                 self._tick()
             except Exception as e:
                 logger.error(f"[{self.agent_id}] tick error: {e}")
-            time.sleep(self.tick_interval)
+            # Jitter ±40% so agents don't fire in synchronized bursts
+            jitter = self.tick_interval * random.uniform(0.6, 1.4)
+            time.sleep(jitter)
 
     def _tick(self):
         self._tick_count += 1
+        now = time.time()
 
         # 1. PERCEIVE — read new events
         new_events = bulletin.read_since(self._last_event_id)
@@ -295,14 +301,33 @@ class MAC(ABC):
 
         # 2. REASON — should I act?
         relevant = self._filter_relevant(new_events)
-        if not relevant and self._tick_count % 6 != 0:   # periodic check every ~30s
+
+        # Skip if nothing relevant and not time for a periodic check.
+        # Periodic check backs off: every ~30s initially, stretching to ~90s
+        # when idle for many consecutive ticks.
+        idle_period = 6 + min(self._consecutive_idle, 12)  # 6-18 ticks
+        if not relevant and self._tick_count % idle_period != 0:
+            self._consecutive_idle += 1
+            return
+
+        # Per-agent cooldown: don't act again within 8s of last action.
+        # This prevents machine-gun bursts when many events arrive at once.
+        since_last = now - self._last_act_time
+        if since_last < 8.0 and not any(
+            e.severity in ("CRITICAL", "HIGH") or e.event_type == "AGENT_OFFLINE"
+            for e in relevant
+        ):
             return
 
         context = self._build_context()
         decision = self._reason(context, relevant)
 
-        if decision:
+        if decision and decision.get("action"):
             self._act(decision)
+            self._last_act_time = time.time()
+            self._consecutive_idle = 0
+        else:
+            self._consecutive_idle += 1
 
     def _filter_relevant(self, events: list[Event]) -> list[Event]:
         """Keep events that are actionable for this domain (override to customize)."""
