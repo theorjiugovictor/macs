@@ -332,7 +332,7 @@ class MAC(ABC):
             "agent_id": self.agent_id,
             "domain": self.domain,
             "bulletin_summary": stats,
-            "swarm_status": agent_status,
+            "macs_status": agent_status,
             "seconds_since_last_action": {
                 k: round(now - v) for k, v in domain_activity.items()
             },
@@ -397,6 +397,7 @@ New events since last tick:
 Based on the situation above, decide your next action for domain {self.domain}.
 
 IMPORTANT:
+- NEVER start your message with your own agent name — just describe what you're doing
 - If a MAC has gone OFFLINE or is silent, acknowledge the gap and describe compensation
 - Reference specific event IDs (e.g. EVT-00042) when building on another MAC's work
 - Be specific: grid references, quantities, timeframes, ETAs

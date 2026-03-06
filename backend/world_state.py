@@ -38,12 +38,17 @@ class WorldState:
 
 
 class WorldStateManager:
+    EMIT_COOLDOWN = 15.0  # seconds — don't spam world-state updates
+
     def __init__(self, scenario_key: str = "cascade"):
         self._lock = threading.RLock()
         self.state = WorldState(scenario=scenario_key, updated_at=time.time())
+        self._last_emit_time = 0.0
+        self._pending_reason: str | None = None
 
     def bootstrap(self):
         """Emit initial state so dashboard/demo has a baseline."""
+        self._last_emit_time = 0.0  # force first emit
         self._emit("bootstrap")
 
     def observe(self, event: Event):
@@ -66,7 +71,7 @@ class WorldStateManager:
             self.state.updated_at = time.time()
 
         if changed:
-            self._emit(f"from {event.id} {event.event_type}")
+            self._try_emit(f"from {event.id} {event.event_type}")
 
     def snapshot(self) -> dict:
         with self._lock:
@@ -243,7 +248,24 @@ class WorldStateManager:
         self._clamp()
         return before != self.snapshot()
 
+    def _try_emit(self, reason: str):
+        """Emit only if cooldown has elapsed; otherwise stash for later."""
+        now = time.time()
+        if now - self._last_emit_time >= self.EMIT_COOLDOWN:
+            self._emit(reason)
+        else:
+            self._pending_reason = reason
+
+    def flush_pending(self):
+        """Called periodically to emit any pending update after cooldown."""
+        if self._pending_reason and (time.time() - self._last_emit_time >= self.EMIT_COOLDOWN):
+            reason = self._pending_reason
+            self._pending_reason = None
+            self._emit(reason)
+
     def _emit(self, reason: str):
+        self._last_emit_time = time.time()
+        self._pending_reason = None
         snap = self.snapshot()
         med = snap["medical"]
         pwr = snap["power"]

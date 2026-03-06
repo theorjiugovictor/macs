@@ -237,6 +237,14 @@ def main():
     world_state_mgr = start_world_state(args.scenario)
     set_world_state_mgr(world_state_mgr)
 
+    # Periodic flush for debounced world state updates
+    def _ws_flush_loop():
+        while True:
+            time.sleep(5)
+            world_state_mgr.flush_pending()
+
+    threading.Thread(target=_ws_flush_loop, daemon=True, name="ws-flush").start()
+
     feed_runner = None
     if args.ext_feeds:
         feed_runner = ExternalFeedRunner(area_key=args.area, interval=args.feed_interval)
