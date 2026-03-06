@@ -912,11 +912,11 @@ class IntakeHandler(BaseHTTPRequestHandler):
 
         elif path == "/logo":
             logo_path = os.path.join(os.path.dirname(__file__), "..", "asset",
-                                      "WhatsApp Image 2026-03-06 at 13.21.10.jpeg")
+                                      "macs_logo_white.png")
             try:
                 with open(logo_path, "rb") as f:
                     img_bytes = f.read()
-                self._send(200, "image/jpeg", img_bytes)
+                self._send(200, "image/png", img_bytes)
             except FileNotFoundError:
                 self._send(404, "text/plain", b"Logo not found")
 
