@@ -120,7 +120,7 @@ select option{background:#111827}
 .d-EVACUATION{background:#0d1a0a;color:#86efac;border:1px solid #166534}
 .d-SYSTEM{background:#111;color:#9ca3af;border:1px solid #374151}
 .rc-msg{font-size:12px;line-height:1.6;color:#d1d5db;margin-bottom:8px}
-.rc-photo{width:100%;max-height:180px;object-fit:cover;border-radius:6px;margin-bottom:8px}
+.rc-photo{width:100%;height:180px;object-fit:cover;border-radius:6px;margin-bottom:8px;background:#111827}
 .rc-meta{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px;font-size:10px}
 .rc-meta span{padding:2px 6px;border-radius:4px}
 .conf-high{background:#052e16;color:#4ade80}.conf-med{background:#1c1a05;color:#fbbf24}
@@ -147,7 +147,7 @@ select option{background:#111827}
 .loc-wrap .loc-icon{position:absolute;left:10px;top:50%;transform:translateY(-50%);pointer-events:none;z-index:1;display:flex;align-items:center}
 #loc{padding-left:30px}
 .minimap{width:100%;height:140px;border-radius:8px;border:1px solid #1f2937;margin-top:6px;display:none;overflow:hidden}
-.minimap-feed{width:100%;height:100px;border-radius:6px;margin-bottom:8px}
+.minimap-feed{width:100%;height:100px;border-radius:6px;margin-bottom:8px;background:#111827}
 .pac-container{background:#111827!important;border:1px solid #1f2937!important;border-radius:0 0 10px 10px!important;
   font-family:'Inter',-apple-system,sans-serif!important;z-index:9999!important;margin-top:-1px!important}
 .pac-item{background:#111827!important;color:#e5e7eb!important;border-top:1px solid #1f2937!important;
@@ -310,10 +310,10 @@ function connectFeedWs(){
       if(evt.source_layer==='AGENT'&&evt.event_type==='ACTION_TAKEN'){
         handleAgentResponseNotification(evt);
       }
-      // pulse the feed tab
+      // pulse the feed tab or debounce feed reload
       if(!document.getElementById('panelFeed').classList.contains('active')){
         document.getElementById('feedPulse').classList.add('show');
-      } else { loadFeed(); }
+      } else { debounceFeedReload(); }
     }catch(e){}
   };
   feedWs.onclose=function(){
@@ -668,11 +668,21 @@ document.getElementById('f').addEventListener('submit',async function(e){
 
 // ── Live Feed
 var feedTimer=null;
+var _feedDebounce=null;
+var _lastFeedIds='';
+function debounceFeedReload(){
+  if(_feedDebounce)clearTimeout(_feedDebounce);
+  _feedDebounce=setTimeout(function(){_feedDebounce=null;loadFeed();},2000);
+}
 async function loadFeed(){
   try{
     var r=await fetch('/reports');
     var reports=await r.json();
     var container=document.getElementById('feedList');
+    // Skip DOM update if the feed hasn't changed (prevents shaking)
+    var idStr=reports.map(function(r){return r.id+':'+(r.validation_count||0)}).join(',');
+    if(idStr===_lastFeedIds)return;
+    _lastFeedIds=idStr;
     if(!reports.length){container.innerHTML='<div class="feed-empty"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#4b5563" stroke-width="1.5" stroke-linecap="round" style="display:block;margin:0 auto 8px"><circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"/></svg>No citizen reports yet. Be the first!</div>';return}
     var html='';
     reports.forEach(function(rpt){
