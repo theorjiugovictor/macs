@@ -29,6 +29,7 @@ logger = logging.getLogger(__name__)
 
 INTAKE_PORT = 8766
 CONTROL_TOKEN = os.getenv("MACS_CONTROL_TOKEN", "")
+GOOGLE_MAPS_KEY = os.getenv("GOOGLE_API_KEY", "")
 CONTROL_AGENTS = {}
 WORLD_STATE_MGR = None
 PHOTO_STORE = {}         # {evt_id: base64_jpeg_string}
@@ -131,7 +132,23 @@ select option{background:#111827}
 .success-overlay .title{font-size:18px;font-weight:800;color:#4ade80;margin-bottom:8px}
 .success-overlay .detail{font-size:12px;color:#6b7280;line-height:1.8}
 .success-overlay a{color:#f97316;font-size:12px;text-decoration:none;margin-top:24px;display:block}
+.loc-wrap{position:relative}
+.loc-wrap .loc-icon{position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:16px;pointer-events:none;z-index:1}
+#loc{padding-left:30px}
+.minimap{width:100%;height:140px;border-radius:8px;border:1px solid #1f2937;margin-top:6px;display:none;overflow:hidden}
+.minimap-feed{width:100%;height:100px;border-radius:6px;margin-bottom:8px}
+.pac-container{background:#111827!important;border:1px solid #1f2937!important;border-radius:0 0 8px 8px!important;
+  font-family:'Courier New',monospace!important;z-index:9999!important;margin-top:-1px!important}
+.pac-item{background:#111827!important;color:#e5e7eb!important;border-top:1px solid #1f2937!important;
+  padding:8px 12px!important;cursor:pointer!important;font-size:13px!important;line-height:1.4!important}
+.pac-item:hover{background:#1f2937!important}
+.pac-item-query{color:#f97316!important;font-weight:700!important}
+.pac-icon{display:none!important}
+.pac-matched{color:#f97316!important}
+.loc-detected{font-size:10px;color:#4ade80;margin-top:4px;display:none}
 </style>
+<script>var __GMAPS_KEY__='%%GMAPS_KEY%%';</script>
+<script src="https://maps.googleapis.com/maps/api/js?key=%%GMAPS_KEY%%&libraries=places&callback=initGMaps" async defer></script>
 </head>
 <body>
 <div class="hdr">
@@ -168,8 +185,13 @@ select option{background:#111827}
       <textarea id="msg" placeholder="Describe what you see &#8212; casualties, blocked routes, infrastructure damage, missing services..." required></textarea>
     </div>
     <div class="field">
-      <label>Location (auto-detected or type manually)</label>
-      <input type="text" id="loc" placeholder="Detecting GPS...">
+      <label>&#x1F4CD; Location (auto-detected &#8226; type to search)</label>
+      <div class="loc-wrap">
+        <span class="loc-icon">&#x1F4CD;</span>
+        <input type="text" id="loc" placeholder="Detecting your location..." autocomplete="off">
+      </div>
+      <div class="loc-detected" id="locDetected"></div>
+      <div class="minimap" id="minimap"></div>
     </div>
     <div class="field">
       <label>Urgency</label>
@@ -202,14 +224,78 @@ var notifEnabled = false;
 var photoB64 = null;
 var photoMime = null;
 var geoLat = null, geoLng = null;
+var miniMap = null, miniMarker = null, placesAC = null;
 
-// ── Geolocation
-if(navigator.geolocation){
-  navigator.geolocation.getCurrentPosition(function(p){
-    geoLat=p.coords.latitude; geoLng=p.coords.longitude;
-    document.getElementById('loc').placeholder=
-      'GPS: '+geoLat.toFixed(4)+', '+geoLng.toFixed(4)+' (or type manually)';
-  }, function(){}, {enableHighAccuracy:true, timeout:5000});
+// ── Google Maps initialization (called by script callback)
+function initGMaps(){
+  // Places Autocomplete
+  var locInput = document.getElementById('loc');
+  placesAC = new google.maps.places.Autocomplete(locInput, {
+    types: ['geocode','establishment'],
+    fields: ['formatted_address','geometry','name']
+  });
+  placesAC.addListener('place_changed', function(){
+    var place = placesAC.getPlace();
+    if(place.geometry){
+      geoLat = place.geometry.location.lat();
+      geoLng = place.geometry.location.lng();
+      var name = place.name && place.name !== place.formatted_address
+        ? place.name + ', ' + place.formatted_address : place.formatted_address;
+      locInput.value = name;
+      showLocDetected('\u2705 ' + name);
+      showMiniMap(geoLat, geoLng, name);
+    }
+  });
+
+  // Reverse-geocode GPS position
+  if(navigator.geolocation){
+    navigator.geolocation.getCurrentPosition(function(p){
+      geoLat = p.coords.latitude; geoLng = p.coords.longitude;
+      var geocoder = new google.maps.Geocoder();
+      geocoder.geocode({location:{lat:geoLat,lng:geoLng}}, function(results,status){
+        if(status==='OK' && results[0]){
+          var addr = results[0].formatted_address;
+          locInput.value = addr;
+          showLocDetected('\u1F4E1 GPS detected: ' + addr);
+          showMiniMap(geoLat, geoLng, addr);
+        } else {
+          locInput.placeholder = 'GPS: '+geoLat.toFixed(4)+', '+geoLng.toFixed(4);
+          showMiniMap(geoLat, geoLng, 'Your location');
+        }
+      });
+    }, function(){
+      locInput.placeholder = 'Type a location or address...';
+    }, {enableHighAccuracy:true, timeout:8000});
+  }
+}
+
+function showMiniMap(lat, lng, title){
+  var el = document.getElementById('minimap');
+  el.style.display = 'block';
+  if(!miniMap){
+    miniMap = new google.maps.Map(el, {
+      zoom:15, center:{lat:lat,lng:lng},
+      disableDefaultUI:true, zoomControl:true,
+      styles:[{elementType:'geometry',stylers:[{color:'#0d1117'}]},
+              {elementType:'labels.text.stroke',stylers:[{color:'#0d1117'}]},
+              {elementType:'labels.text.fill',stylers:[{color:'#6b7280'}]},
+              {featureType:'road',elementType:'geometry',stylers:[{color:'#1f2937'}]},
+              {featureType:'water',elementType:'geometry',stylers:[{color:'#111827'}]},
+              {featureType:'poi',elementType:'labels',stylers:[{visibility:'off'}]}]
+    });
+    miniMarker = new google.maps.Marker({position:{lat:lat,lng:lng}, map:miniMap,
+      title:title, icon:{path:google.maps.SymbolPath.CIRCLE,scale:10,
+        fillColor:'#f97316',fillOpacity:1,strokeColor:'#fff',strokeWeight:2}});
+  } else {
+    miniMap.setCenter({lat:lat,lng:lng});
+    miniMarker.setPosition({lat:lat,lng:lng});
+    miniMarker.setTitle(title);
+  }
+}
+
+function showLocDetected(msg){
+  var el=document.getElementById('locDetected');
+  el.textContent=msg; el.style.display='block';
 }
 
 // ── Tabs
@@ -390,7 +476,18 @@ async function loadFeed(){
         +'<span class="val-badge">\\u2705 '+valCount+' validation'+(valCount!==1?'s':'')+'</span>'
         +(needsVal?'<span class="needs-tag">\\uD83D\\uDC41 NEEDS VALIDATION</span>':'')
         +'</div>';
-      if(p.location&&p.location!=='unknown'){html+='<div style="font-size:10px;color:#6b7280;margin-bottom:8px">\\uD83D\\uDCCD '+escHtml(p.location)+'</div>';}
+      if(p.location&&p.location!=='unknown'){
+        html+='<div style="font-size:10px;color:#6b7280;margin-bottom:8px">\\uD83D\\uDCCD '+escHtml(p.location)+'</div>';
+        // Static Google Map for geolocated reports
+        if(p.geo&&p.geo.lat&&__GMAPS_KEY__){
+          html+='<img class="minimap-feed" loading="lazy" src="https://maps.googleapis.com/maps/api/staticmap?center='
+            +p.geo.lat+','+p.geo.lng+'&zoom=14&size=520x100&scale=2&maptype=roadmap'
+            +'&style=element:geometry%7Ccolor:0x0d1117&style=element:labels.text.fill%7Ccolor:0x6b7280'
+            +'&style=element:labels.text.stroke%7Ccolor:0x0d1117&style=feature:road%7Celement:geometry%7Ccolor:0x1f2937'
+            +'&markers=color:orange%7C'+p.geo.lat+','+p.geo.lng
+            +'&key='+__GMAPS_KEY__+'">';
+        }
+      }
       if(!isValidated){
         html+='<button class="validate-btn" onclick="validateReport(\\''+rpt.id+'\\',this)">'
           +'\\u2714 I CAN CONFIRM THIS REPORT</button>';
@@ -490,7 +587,8 @@ class IntakeHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         path = urlparse(self.path).path
         if path in ("/", "/report"):
-            self._send(200, "text/html; charset=utf-8", FORM_HTML.encode("utf-8"))
+            html = FORM_HTML.replace("%%GMAPS_KEY%%", GOOGLE_MAPS_KEY)
+            self._send(200, "text/html; charset=utf-8", html.encode("utf-8"))
 
         elif path == "/qr":
             ip = get_local_ip()
