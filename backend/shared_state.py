@@ -108,6 +108,33 @@ class BulletinBoard:
                 "by_severity": severities,
             }
 
+    def agent_status(self) -> dict:
+        """Derive online/offline from lifecycle events (most recent wins)."""
+        status = {}
+        with self._lock:
+            for e in self._events:
+                if e.event_type == "AGENT_ONLINE":
+                    status[e.source] = "online"
+                elif e.event_type == "AGENT_OFFLINE":
+                    status[e.source] = "offline"
+        return status
+
+    def domain_last_active(self) -> dict:
+        """Return timestamp of last ACTION_TAKEN per agent."""
+        last = {}
+        with self._lock:
+            for e in self._events:
+                if e.event_type == "ACTION_TAKEN":
+                    last[e.source] = e.timestamp
+        return last
+
+    def read_since_limited(self, after_id: str = None, limit: int = 100) -> list[Event]:
+        """Return events after a given id, capped at limit (most recent)."""
+        events = self.read_since(after_id)
+        if limit and len(events) > limit:
+            events = events[-limit:]
+        return events
+
     # ── Subscription / broadcast ─────────────────────────────────────────────
 
     def subscribe(self, callback):

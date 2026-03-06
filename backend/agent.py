@@ -167,6 +167,40 @@ REACTIVE_RESPONSES = {
     },
 }
 
+# Gap-detection responses: when an agent detects a peer is offline, it compensates.
+GAP_RESPONSES = {
+    "MEDIC": {
+        "LOGISTICS": "LOGISTICS offline — medical supply chain at risk. Converting ambulance fleet to emergency supply transport. Blood reserves prioritized from hospital pharmacy stores. Requesting remaining MACs assist with supply routing.",
+        "POWER": "POWER offline — hospital backup generators unmonitored. Switching to battery-powered portable equipment. Surgical procedures limited to manual-capable and life-threatening cases only.",
+        "COMMS": "COMMS offline — medical coordination degraded. Deploying physical runners between triage sites B-7 and hospital. Visual signal flags active at all field stations for casualty routing.",
+        "EVAC": "EVAC offline — casualty transport disrupted. Converting medical vehicles to dual evacuation/triage role. Hospital shelter intake activated — receiving displaced civilians at ER entrance.",
+    },
+    "LOGISTICS": {
+        "MEDIC": "MEDIC offline — medical supply prioritization lost. Establishing emergency aid station at distribution point Alpha. Medical supply convoy fast-tracked to hospital on standing orders.",
+        "POWER": "POWER offline — fuel distribution now critical. Emergency fuel convoy deployed to all known generator sites. Battery packs distributed to critical facilities.",
+        "COMMS": "COMMS offline — convoy coordination degraded. Using drivers as physical message relay between zones. Printed supply manifests distributed to all checkpoints.",
+        "EVAC": "EVAC offline — civilian transport halted. Repurposing 4 supply trucks for civilian evacuation. Distribution points opened as temporary shelters with aid supplies.",
+    },
+    "POWER": {
+        "MEDIC": "MEDIC offline — ensuring uninterrupted power to hospital automation and life-support systems. Generator priority elevated for all medical facilities.",
+        "LOGISTICS": "LOGISTICS offline — fuel resupply uncertain. Switching to conservation mode: extending generator runtime via load shedding on non-critical sectors.",
+        "COMMS": "COMMS offline — powering all backup radio and mesh relay nodes at maximum priority. Emergency broadcast tower on dedicated generator circuit.",
+        "EVAC": "EVAC offline — ensuring evacuation corridor lighting and shelter power remain on priority grid. Emergency lighting deployed on all known safe routes.",
+    },
+    "COMMS": {
+        "MEDIC": "MEDIC offline — broadcasting medical self-aid guidance on all channels (4 languages). Relaying casualty locations to remaining MACs for cross-domain pickup.",
+        "LOGISTICS": "LOGISTICS offline — distributing last known supply status to all field teams. Coordinating ad-hoc civilian supply sharing via community radio.",
+        "POWER": "POWER offline — switching to battery-powered radio. Reducing broadcast intervals to extend coverage duration. Emergency frequencies maintained.",
+        "EVAC": "EVAC offline — broadcasting shelter locations and safe routes on continuous loop. Coordinating civilian self-evacuation via radio guidance every 5 minutes.",
+    },
+    "EVAC": {
+        "MEDIC": "MEDIC offline — equipping all evacuation buses with first-aid kits. Deploying trained volunteers for basic triage at shelter intake. Priority evacuation for visibly injured.",
+        "LOGISTICS": "LOGISTICS offline — using evacuation vehicles for emergency supply runs during non-evacuation windows. Fuel conserved for critical transport only.",
+        "POWER": "POWER offline — routing evacuations through lit corridors only. All buses equipped with portable lighting. Night evacuations suspended until dawn.",
+        "COMMS": "COMMS offline — using bus PA systems for local broadcasts at each stop. Deploying runners between shelters for inter-shelter coordination.",
+    },
+}
+
 
 class MAC(ABC):
     """
@@ -274,14 +308,16 @@ class MAC(ABC):
         """Keep events that are actionable for this domain (override to customize)."""
         if not events:
             return []
-        skip_types = {"AGENT_ONLINE", "AGENT_OFFLINE"}
-        # Include own domain + high severity from any domain + system events
+        skip_types = {"AGENT_ONLINE"}  # Keep AGENT_OFFLINE for gap detection
+        # Include own domain + high severity + system + lifecycle + all peer actions
         return [
             e for e in events
             if e.event_type not in skip_types and (
                 e.domain == self.domain
                 or e.severity in ("CRITICAL", "HIGH")
                 or e.source == "SYSTEM"
+                or e.event_type == "AGENT_OFFLINE"
+                or e.event_type == "ACTION_TAKEN"
             )
         ]
 
@@ -289,10 +325,17 @@ class MAC(ABC):
         """Construct the situational awareness snapshot passed to the LLM."""
         snapshot = bulletin.snapshot(max_events=30)
         stats = bulletin.stats()
+        agent_status = bulletin.agent_status()
+        domain_activity = bulletin.domain_last_active()
+        now = time.time()
         return json.dumps({
             "agent_id": self.agent_id,
             "domain": self.domain,
             "bulletin_summary": stats,
+            "swarm_status": agent_status,
+            "seconds_since_last_action": {
+                k: round(now - v) for k, v in domain_activity.items()
+            },
             "recent_events": snapshot,
         }, indent=2)
 
@@ -305,24 +348,68 @@ class MAC(ABC):
         return self._mock_reason(relevant_events)
 
     def _build_user_prompt(self, context: str, relevant_events: list) -> str:
+        # Build team awareness section
+        agent_status = bulletin.agent_status()
+        domain_activity = bulletin.domain_last_active()
+        now = time.time()
+
+        online = [k for k, v in agent_status.items() if v == "online" and k != self.agent_id]
+        offline = [k for k, v in agent_status.items() if v == "offline" and k != self.agent_id]
+
+        silent = []
+        for aid, ts in domain_activity.items():
+            if aid != self.agent_id and (now - ts) > 45:
+                silent.append("{} (silent {}s)".format(aid, int(now - ts)))
+
+        # Format other agents' recent actions for cross-referencing
+        other_actions = []
+        for e in reversed(relevant_events):
+            if e.source != self.agent_id and e.event_type == "ACTION_TAKEN":
+                other_actions.append(
+                    "  [{}] {}: {}".format(e.id, e.source, e.payload.get("message", "")[:150])
+                )
+        other_actions = other_actions[:6]
+
         relevant_summary = json.dumps(
-            [{"type": e.event_type, "domain": e.domain, "severity": e.severity,
-              "payload": e.payload} for e in relevant_events],
+            [{"id": e.id, "type": e.event_type, "source": e.source, "domain": e.domain,
+              "severity": e.severity, "payload": e.payload} for e in relevant_events],
             indent=2,
         )
+
+        actions_block = "\n".join(other_actions) if other_actions else "  (none yet)"
+        team_section = (
+            "TEAM STATUS:\n"
+            "  Peers online: " + (", ".join(online) if online else "none visible") + "\n"
+            "  Peers offline: " + (", ".join(offline) if offline else "none") + "\n"
+            "  Silent domains: " + (", ".join(silent) if silent else "none") + "\n\n"
+            "RECENT PEER ACTIONS (reference these by event ID when building on them):\n"
+            + actions_block
+        )
+
         return f"""Current situation (shared bulletin board state):
 {context}
+
+{team_section}
 
 New events since last tick:
 {relevant_summary}
 
-Based on the situation above, should you take action in your domain ({self.domain})?
-If yes, respond with a JSON object:
+Based on the situation above, decide your next action for domain {self.domain}.
+
+IMPORTANT:
+- If a MAC has gone OFFLINE or is silent, acknowledge the gap and describe compensation
+- Reference specific event IDs (e.g. EVT-00042) when building on another MAC's work
+- Be specific: grid references, quantities, timeframes, ETAs
+- Don't duplicate what another MAC already handled
+
+Respond with JSON:
+If acting:
 {{
   "action": true,
   "event_type": "ACTION_TAKEN",
   "severity": "HIGH|MEDIUM|LOW",
-  "message": "what you are doing (be specific: locations, quantities, timeframes)",
+  "message": "what you are doing (reference other MACs and event IDs)",
+  "references": ["EVT-XXXXX"],
   "details": {{}}
 }}
 If no action needed:
@@ -372,13 +459,29 @@ Respond ONLY with valid JSON. No markdown."""
     def _mock_reason(self, relevant_events: list = None) -> Optional[dict]:
         """Return a context-aware scripted response for demo/testing.
 
-        Prefers a reactive response when another MAC has recently posted
-        something relevant, making agents appear to coordinate with each other.
-        Falls back to the default cycling responses otherwise.
+        Priority order:
+        1. Gap detection — compensate for offline peers
+        2. Reactive — respond to other MACs' actions
+        3. Default — cyclic domain responses
         """
-        # Try to react to the most recent HIGH/CRITICAL post from another MAC
         if relevant_events:
-            # Collect unique source domains from other agents (most recent first)
+            # 1. GAP DETECTION — compensate for offline peers
+            for e in relevant_events:
+                if e.event_type == "AGENT_OFFLINE" and e.source != self.agent_id:
+                    gaps = GAP_RESPONSES.get(self.agent_id, {})
+                    gap_msg = gaps.get(e.source)
+                    if gap_msg:
+                        self._mock_response_index += 1
+                        return {
+                            "action": True,
+                            "event_type": "ACTION_TAKEN",
+                            "severity": "HIGH",
+                            "message": gap_msg,
+                            "details": {"mock": True, "compensating_for": e.source},
+                            "references": [e.id],
+                        }
+
+            # 2. REACTIVE — respond to other MACs' recent actions
             seen = set()
             candidates = []
             for e in reversed(relevant_events):
@@ -386,10 +489,10 @@ Respond ONLY with valid JSON. No markdown."""
                         and e.event_type == "ACTION_TAKEN"
                         and e.domain not in seen):
                     seen.add(e.domain)
-                    candidates.append(e.domain)
+                    candidates.append((e.domain, e.id))
 
             reactions = REACTIVE_RESPONSES.get(self.agent_id, {})
-            for domain in candidates:
+            for domain, ref_id in candidates:
                 options = reactions.get(domain)
                 if options:
                     msg = options[self._mock_response_index % len(options)]
@@ -400,9 +503,10 @@ Respond ONLY with valid JSON. No markdown."""
                         "severity": "HIGH",
                         "message": msg,
                         "details": {"mock": True, "reacting_to": domain},
+                        "references": [ref_id],
                     }
 
-        # Fall back to default cyclic responses
+        # 3. Fall back to default cyclic responses
         responses = MOCK_RESPONSES.get(self.agent_id, [])
         if not responses:
             return None
@@ -421,15 +525,20 @@ Respond ONLY with valid JSON. No markdown."""
         if not decision.get("action"):
             return
 
+        payload = {
+            "message": decision.get("message", ""),
+            "details": decision.get("details", {}),
+        }
+        refs = decision.get("references", [])
+        if refs:
+            payload["references"] = refs
+
         bulletin.post(
             source=self.agent_id,
             event_type=decision.get("event_type", "ACTION_TAKEN"),
             domain=self.domain,
             severity=decision.get("severity", "MEDIUM"),
-            payload={
-                "message": decision.get("message", ""),
-                "details": decision.get("details", {}),
-            },
+            payload=payload,
             tags=[self.domain.lower(), "action"],
         )
         logger.info(f"[{self.agent_id}] acted: {decision.get('message', '')[:80]}")

@@ -71,7 +71,7 @@ from personas import build_macs
 from scenarios import ScenarioRunner
 from ws_server import start_ws_server
 from verifier import Verifier
-from intake_server import start_intake_server, set_control_agents, get_local_ip, INTAKE_PORT
+from intake_server import start_intake_server, set_control_agents, set_world_state_mgr, get_local_ip, INTAKE_PORT
 from world_state import start_world_state
 from external_feeds import ExternalFeedRunner
 
@@ -235,6 +235,7 @@ def main():
 
     # Start world state manager (shared operational picture)
     world_state_mgr = start_world_state(args.scenario)
+    set_world_state_mgr(world_state_mgr)
 
     feed_runner = None
     if args.ext_feeds:

@@ -18,7 +18,8 @@ import os
 import socket
 import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
-from urllib.parse import urlparse
+from dataclasses import asdict
+from urllib.parse import urlparse, parse_qs
 from typing import Optional
 
 from shared_state import bulletin
@@ -29,6 +30,7 @@ logger = logging.getLogger(__name__)
 INTAKE_PORT = 8766
 CONTROL_TOKEN = os.getenv("MACS_CONTROL_TOKEN", "")
 CONTROL_AGENTS = {}
+WORLD_STATE_MGR = None
 
 # ── HTML ──────────────────────────────────────────────────────────────────────
 
@@ -207,6 +209,41 @@ class IntakeHandler(BaseHTTPRequestHandler):
             stats = bulletin.stats()
             self._send(200, "application/json", json.dumps(stats).encode())
 
+        elif path == "/world-state":
+            if WORLD_STATE_MGR is None:
+                self._json({"error": "World state manager not initialized"})
+            else:
+                self._json(WORLD_STATE_MGR.snapshot())
+
+        elif path == "/events":
+            qs = parse_qs(urlparse(self.path).query)
+            since = (qs.get("since") or [None])[0]
+            limit = int((qs.get("limit") or ["100"])[0])
+            etype = (qs.get("type") or [None])[0]
+            domain = (qs.get("domain") or [None])[0]
+            events = bulletin.read_since_limited(since, limit)
+            if etype:
+                events = [e for e in events if e.event_type == etype]
+            if domain:
+                events = [e for e in events if e.domain == domain.upper()]
+            self._json([asdict(e) for e in events])
+
+        elif path == "/agents":
+            import time as _time
+            now = _time.time()
+            status = bulletin.agent_status()
+            activity = bulletin.domain_last_active()
+            result = {}
+            for aid, agent in CONTROL_AGENTS.items():
+                result[aid] = {
+                    "status": status.get(aid, "unknown"),
+                    "domain": getattr(agent, "domain", None),
+                    "alive": agent.is_alive(),
+                    "last_action": activity.get(aid),
+                    "seconds_since_action": round(now - activity[aid], 1) if aid in activity else None,
+                }
+            self._json({"agents": result, "timestamp": now})
+
         else:
             self._send(404, "text/plain", b"Not found")
 
@@ -380,6 +417,12 @@ def set_control_agents(agent_map: dict):
     """Register running agents for /control endpoint actions."""
     CONTROL_AGENTS.clear()
     CONTROL_AGENTS.update(agent_map or {})
+
+
+def set_world_state_mgr(mgr):
+    """Register world state manager for /world-state endpoint."""
+    global WORLD_STATE_MGR
+    WORLD_STATE_MGR = mgr
 
 
 if __name__ == "__main__":
