@@ -1,13 +1,24 @@
 """
-MAC — Multi-Agent Crisis (response unit). Base class for all agents.
+MAC (Multi-Agent Crisis response unit) — Base Agent Class
 
-Every MAC runs an identical loop:
+Each MAC runs an independent perceive → reason → act loop in its own thread.
+Agents NEVER communicate directly. All coordination happens through the shared
+BulletinBoard (shared_state.py) — this is the stigmergy pattern.
+
+Loop:
   1. PERCEIVE  — read bulletin board since last tick
-  2. REASON    — LLM decides whether to act (or mock response)
+  2. REASON    — LLM (Gemini/Claude) decides whether to act, or mock fallback
   3. ACT       — post decision back to bulletin board
 
 No MAC knows about other MACs. They only see the shared state.
 Resilience: if this process dies, no other MAC's loop breaks.
+
+Subclasses: see agents/ directory
+  agents/medic.py      → MedicAgent      (MEDICAL)
+  agents/logistics.py  → LogisticsAgent  (LOGISTICS)
+  agents/power.py      → PowerAgent      (POWER)
+  agents/comms.py      → CommsAgent      (COMMS)
+  agents/evac.py       → EvacAgent       (EVACUATION)
 """
 
 from __future__ import annotations
