@@ -270,10 +270,17 @@ function haversineKm(lat1,lon1,lat2,lon2){
 function startGeoWatch(){
   if(!navigator.geolocation)return;
   if(geoWatchId!==null)return;
+  // LOW accuracy first — fast & reliable on ALL devices (WiFi/cell)
   geoWatchId=navigator.geolocation.watchPosition(
     function(p){userLat=p.coords.latitude;userLng=p.coords.longitude;},
     function(){},
-    {enableHighAccuracy:true,maximumAge:30000,timeout:10000}
+    {enableHighAccuracy:false,maximumAge:60000,timeout:20000}
+  );
+  // HIGH accuracy in parallel — upgrades position when GPS available
+  navigator.geolocation.watchPosition(
+    function(p){userLat=p.coords.latitude;userLng=p.coords.longitude;},
+    function(){},
+    {enableHighAccuracy:true,maximumAge:30000,timeout:30000}
   );
 }
 startGeoWatch();
@@ -388,30 +395,28 @@ function initGMaps(){
     });
   }
   if(navigator.geolocation){
-    // Try high-accuracy first (fast on iPhone, may timeout on Android)
-    navigator.geolocation.getCurrentPosition(function(p){
-      fillLocationFromGPS(p.coords.latitude, p.coords.longitude);
-    }, function(){
-      // Fallback: lower accuracy (cell/wifi) with longer timeout
+    // Check if watchPosition already acquired a fix (it started early)
+    if(userLat!==null&&userLng!==null){
+      fillLocationFromGPS(userLat,userLng);
+    } else {
+      // LOW accuracy first — works on ALL Android/iOS regardless of GPS setting
       navigator.geolocation.getCurrentPosition(function(p){
         fillLocationFromGPS(p.coords.latitude, p.coords.longitude);
-      }, function(){
-        // Last resort: if watchPosition already has a fix, use it
-        if(userLat!==null&&userLng!==null){
-          fillLocationFromGPS(userLat,userLng);
-        } else {
-          locInput.placeholder = 'Type a location or address...';
-          // Keep checking if watchPosition gets a fix
-          var _geoRetry=setInterval(function(){
-            if(userLat!==null&&userLng!==null&&!geoLat){
-              fillLocationFromGPS(userLat,userLng);
-              clearInterval(_geoRetry);
-            }
-          },3000);
-          setTimeout(function(){clearInterval(_geoRetry)},30000);
-        }
-      }, {enableHighAccuracy:false, timeout:15000, maximumAge:60000});
-    }, {enableHighAccuracy:true, timeout:8000, maximumAge:30000});
+      }, function(err){
+        // getCurrentPosition failed — poll for watchPosition fix
+        locInput.placeholder = 'Detecting location...';
+        var _geoRetry=setInterval(function(){
+          if(userLat!==null&&userLng!==null&&!geoLat){
+            fillLocationFromGPS(userLat,userLng);
+            clearInterval(_geoRetry);
+          }
+        },2000);
+        setTimeout(function(){
+          clearInterval(_geoRetry);
+          if(!geoLat) locInput.placeholder='Type a location or address...';
+        },30000);
+      }, {enableHighAccuracy:false, timeout:10000, maximumAge:60000});
+    }
   }
 }
 
