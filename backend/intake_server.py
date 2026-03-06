@@ -676,6 +676,7 @@ document.getElementById('f').addEventListener('submit',async function(e){
         +'View Live Feed &rarr;</a>';
       document.body.appendChild(overlay);
       document.getElementById('f').reset();photoB64=null;removePhoto({stopPropagation:function(){}});
+      btn.innerHTML=SUBMIT_BTN;btn.disabled=false;
     } else {
       btn.innerHTML=SUBMIT_BTN;btn.disabled=false;
       alert('Not accepted: '+(d.reason||'Please add more detail and try again.'));
@@ -770,10 +771,10 @@ async function validateReport(id,btn){
 
 function escHtml(s){var d=document.createElement('div');d.textContent=s;return d.innerHTML}
 
-// Auto-refresh feed every 5s when visible (WebSocket handles notifications)
+// Auto-refresh feed when visible (debounced, WS handles real-time)
 setInterval(function(){
-  if(document.getElementById('panelFeed').classList.contains('active'))loadFeed();
-},5000);
+  if(document.getElementById('panelFeed').classList.contains('active'))debounceFeedReload();
+},8000);
 // Initial feed load
 setTimeout(function(){loadFeed()},1000);
 </script>
