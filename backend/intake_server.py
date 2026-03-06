@@ -371,24 +371,47 @@ function initGMaps(){
   });
 
   // Reverse-geocode GPS position
+  function fillLocationFromGPS(lat,lng){
+    geoLat=lat;geoLng=lng;
+    var geocoder = new google.maps.Geocoder();
+    geocoder.geocode({location:{lat:lat,lng:lng}}, function(results,status){
+      if(status==='OK' && results[0]){
+        var addr = results[0].formatted_address;
+        locInput.value = addr;
+        showLocDetected('\\uD83D\\uDCE1 GPS detected: ' + addr);
+        showMiniMap(lat, lng, addr);
+      } else {
+        locInput.value = lat.toFixed(5)+', '+lng.toFixed(5);
+        showLocDetected('\\uD83D\\uDCE1 GPS coordinates acquired');
+        showMiniMap(lat, lng, 'Your location');
+      }
+    });
+  }
   if(navigator.geolocation){
+    // Try high-accuracy first (fast on iPhone, may timeout on Android)
     navigator.geolocation.getCurrentPosition(function(p){
-      geoLat = p.coords.latitude; geoLng = p.coords.longitude;
-      var geocoder = new google.maps.Geocoder();
-      geocoder.geocode({location:{lat:geoLat,lng:geoLng}}, function(results,status){
-        if(status==='OK' && results[0]){
-          var addr = results[0].formatted_address;
-          locInput.value = addr;
-          showLocDetected('\u1F4E1 GPS detected: ' + addr);
-          showMiniMap(geoLat, geoLng, addr);
-        } else {
-          locInput.placeholder = 'GPS: '+geoLat.toFixed(4)+', '+geoLng.toFixed(4);
-          showMiniMap(geoLat, geoLng, 'Your location');
-        }
-      });
+      fillLocationFromGPS(p.coords.latitude, p.coords.longitude);
     }, function(){
-      locInput.placeholder = 'Type a location or address...';
-    }, {enableHighAccuracy:true, timeout:8000});
+      // Fallback: lower accuracy (cell/wifi) with longer timeout
+      navigator.geolocation.getCurrentPosition(function(p){
+        fillLocationFromGPS(p.coords.latitude, p.coords.longitude);
+      }, function(){
+        // Last resort: if watchPosition already has a fix, use it
+        if(userLat!==null&&userLng!==null){
+          fillLocationFromGPS(userLat,userLng);
+        } else {
+          locInput.placeholder = 'Type a location or address...';
+          // Keep checking if watchPosition gets a fix
+          var _geoRetry=setInterval(function(){
+            if(userLat!==null&&userLng!==null&&!geoLat){
+              fillLocationFromGPS(userLat,userLng);
+              clearInterval(_geoRetry);
+            }
+          },3000);
+          setTimeout(function(){clearInterval(_geoRetry)},30000);
+        }
+      }, {enableHighAccuracy:false, timeout:15000, maximumAge:60000});
+    }, {enableHighAccuracy:true, timeout:8000, maximumAge:30000});
   }
 }
 
