@@ -17,7 +17,7 @@ import logging
 import os
 import socket
 import threading
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler, HTTPServer, ThreadingHTTPServer
 from dataclasses import asdict
 from urllib.parse import urlparse, parse_qs
 from typing import Optional
@@ -403,7 +403,9 @@ class IntakeHandler(BaseHTTPRequestHandler):
 def start_intake_server(verifier: Verifier) -> threading.Thread:
     """Start the intake HTTP server in a background thread."""
     IntakeHandler.verifier = verifier
-    server = HTTPServer(("0.0.0.0", INTAKE_PORT), IntakeHandler)
+    server = ThreadingHTTPServer(("0.0.0.0", INTAKE_PORT), IntakeHandler)
+    server.request_queue_size = 32
+    server.daemon_threads = True
 
     def _run():
         server.serve_forever()
@@ -431,7 +433,7 @@ if __name__ == "__main__":
                         format="%(asctime)s  %(levelname)-7s  %(message)s",
                         datefmt="%H:%M:%S")
     IntakeHandler.verifier = Verifier(mock_mode=True)
-    server = HTTPServer(("0.0.0.0", INTAKE_PORT), IntakeHandler)
+    server = ThreadingHTTPServer(("0.0.0.0", INTAKE_PORT), IntakeHandler)
     ip = get_local_ip()
     print(f"Intake server  http://{ip}:{INTAKE_PORT}/")
     print(f"QR code        http://{ip}:{INTAKE_PORT}/qr")
