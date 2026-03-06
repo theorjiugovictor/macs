@@ -718,7 +718,7 @@ document.getElementById('f').addEventListener('submit',async function(e){
 // ── Live Feed
 var feedTimer=null;
 var _feedDebounce=null;
-var _lastFeedIds='';
+var _lastFeedIds=null;
 function debounceFeedReload(){
   if(_feedDebounce)clearTimeout(_feedDebounce);
   _feedDebounce=setTimeout(function(){_feedDebounce=null;loadFeed();},2000);
