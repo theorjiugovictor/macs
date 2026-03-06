@@ -163,7 +163,7 @@ select option{background:#111827}
 </head>
 <body>
 <div class="hdr">
-  <div class="logo"><img src="/logo" alt="MACS" style="height:32px;border-radius:4px"> MACS</div>
+  <div class="logo"><img src="/logo" alt="MACS" style="height:32px;border-radius:4px"></div>
   <div class="badge">FIELD REPORT</div>
 </div>
 
