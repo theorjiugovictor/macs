@@ -254,6 +254,7 @@ class ScenarioRunner:
             event_type="SCENARIO_START",
             domain="SYSTEM",
             severity="INFO",
+            source_layer="SYSTEM",
             payload={
                 "scenario": self.scenario["name"],
                 "description": self.scenario["description"],
@@ -279,6 +280,7 @@ class ScenarioRunner:
                 event_type=scenario_event.event_type,
                 domain=scenario_event.domain,
                 severity=scenario_event.severity,
+                source_layer="SYSTEM",
                 payload=scenario_event.payload,
                 tags=(scenario_event.tags or []),
             )

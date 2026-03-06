@@ -19,14 +19,19 @@ import asyncio
 import websockets
 
 
+# Source layers for the three-tier validation architecture
+SOURCE_LAYERS = ("SENSOR", "API", "CROWD", "AGENT", "SYSTEM")
+
+
 @dataclass
 class Event:
     id: str
     timestamp: float
-    source: str          # agent id or "SYSTEM"
+    source: str          # agent id or "SYSTEM" or "EXT_FEED" or "FIELD_REPORT"
     event_type: str      # e.g. CRISIS_ALERT, ACTION_TAKEN, STATE_UPDATE
     domain: str          # e.g. MEDICAL, LOGISTICS, POWER, COMMS, EVACUATION
     severity: str        # CRITICAL, HIGH, MEDIUM, LOW, INFO
+    source_layer: str = "SYSTEM"  # SENSOR | API | CROWD | AGENT | SYSTEM
     payload: dict = field(default_factory=dict)
     tags: list = field(default_factory=list)
 
@@ -49,7 +54,8 @@ class BulletinBoard:
     # ── Core API ────────────────────────────────────────────────────────────
 
     def post(self, source: str, event_type: str, domain: str,
-             severity: str, payload: dict, tags: list = None) -> Event:
+             severity: str, payload: dict, tags: list = None,
+             source_layer: str = "SYSTEM") -> Event:
         with self._lock:
             self._counter += 1
             event = Event(
@@ -59,6 +65,7 @@ class BulletinBoard:
                 event_type=event_type,
                 domain=domain,
                 severity=severity,
+                source_layer=source_layer,
                 payload=payload,
                 tags=tags or [],
             )

@@ -63,6 +63,7 @@ class ExternalFeedRunner:
             event_type="EXTERNAL_FEEDS_ONLINE",
             domain="SYSTEM",
             severity="INFO",
+            source_layer="SYSTEM",
             payload={
                 "message": f"External feeds enabled for {self.area['name']}",
                 "area": self.area_key,
@@ -93,6 +94,7 @@ class ExternalFeedRunner:
             event_type="EXTERNAL_POLL",
             domain="SYSTEM",
             severity="INFO",
+            source_layer="API",
             payload={
                 "message": f"External feed poll {phase} ({self.area['name']})",
                 "area": self.area_key,
@@ -146,6 +148,7 @@ class ExternalFeedRunner:
                 event_type="SEISMIC_ACTIVITY",
                 domain="SYSTEM",
                 severity=sev,
+                source_layer="SENSOR",
                 payload={
                     "message": f"Earthquake M{mag:.1f} detected in scoped area ({place}).",
                     "magnitude": mag,
@@ -182,6 +185,7 @@ class ExternalFeedRunner:
                 event_type="WEATHER_STATUS",
                 domain="SYSTEM",
                 severity="INFO",
+                source_layer="SENSOR",
                 payload={
                     "message": (
                         f"Weather status {self.area['name']}: precip={precip} mm, "
@@ -214,6 +218,7 @@ class ExternalFeedRunner:
             event_type="WEATHER_ALERT",
             domain="SYSTEM",
             severity=sev,
+            source_layer="SENSOR",
             payload={
                 "message": (
                     f"Weather alert for {self.area['name']}: precipitation={precip} mm, "
@@ -270,6 +275,7 @@ class ExternalFeedRunner:
                 event_type="NATURAL_HAZARD_EVENT",
                 domain="SYSTEM",
                 severity=sev,
+                source_layer="API",
                 payload={
                     "message": f"NASA EONET hazard in scoped area: {title} ({cat_str}).",
                     "hazard_id": eid,

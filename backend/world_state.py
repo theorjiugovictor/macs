@@ -287,6 +287,7 @@ class WorldStateManager:
             event_type="WORLD_STATE_UPDATE",
             domain="SYSTEM",
             severity="INFO",
+            source_layer="SYSTEM",
             payload={
                 "message": summary,
                 "reason": reason,

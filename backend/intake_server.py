@@ -244,6 +244,43 @@ class IntakeHandler(BaseHTTPRequestHandler):
                 }
             self._json({"agents": result, "timestamp": now})
 
+        elif path == "/layers":
+            # Three-layer intelligence summary
+            import time as _time
+            from shared_state import SOURCE_LAYERS
+            now = _time.time()
+            recent = bulletin.snapshot(max_events=200)
+            layer_stats = {layer: {"count": 0, "latest": None, "event_types": {}} for layer in SOURCE_LAYERS}
+            for evt in recent:
+                layer = evt.get("source_layer", "SYSTEM")
+                if layer not in layer_stats:
+                    layer_stats[layer] = {"count": 0, "latest": None, "event_types": {}}
+                layer_stats[layer]["count"] += 1
+                layer_stats[layer]["latest"] = evt.get("timestamp")
+                etype = evt.get("event_type", "UNKNOWN")
+                layer_stats[layer]["event_types"][etype] = layer_stats[layer]["event_types"].get(etype, 0) + 1
+            # Corroboration stats from recent CROWD events
+            crowd_events = [e for e in recent if e.get("source_layer") == "CROWD"]
+            corroborated = sum(1 for e in crowd_events
+                               if e.get("payload", {}).get("corroboration_score", 0) > 0.3)
+            self._json({
+                "layers": layer_stats,
+                "pipeline": {
+                    "total_events": len(recent),
+                    "crowd_reports": len(crowd_events),
+                    "corroborated": corroborated,
+                    "corroboration_rate": round(corroborated / max(len(crowd_events), 1), 2),
+                },
+                "description": {
+                    "SENSOR": "Ground truth — seismic, weather, environmental sensors",
+                    "API": "Institutional truth — EONET, govt alerts, official feeds",
+                    "CROWD": "Human truth — citizen field reports (corroborated by validator)",
+                    "AGENT": "Derivative analysis — MAC agent reasoning and actions",
+                    "SYSTEM": "System events — world state, control actions, lifecycle",
+                },
+                "timestamp": now,
+            })
+
         else:
             self._send(404, "text/plain", b"Not found")
 
@@ -300,12 +337,15 @@ class IntakeHandler(BaseHTTPRequestHandler):
             event_type="CITIZEN_INTEL",
             domain=result["domain"],
             severity=ai_sev,
+            source_layer="CROWD",
             payload={
                 "message":    result["message"],
                 "original":   message,
                 "location":   location or "unknown",
                 "confidence": result["confidence"],
-                "verified_by": "MACS-VERIFIER",
+                "verified_by": "MACS-VALIDATOR",
+                "corroborated_by": result.get("corroborated_by", []),
+                "corroboration_score": result.get("corroboration_score", 0),
             },
             tags=["citizen", "field-report", "verified"],
         )
@@ -360,6 +400,7 @@ class IntakeHandler(BaseHTTPRequestHandler):
                 event_type="CONTROL_ACTION",
                 domain="SYSTEM",
                 severity="INFO",
+                source_layer="SYSTEM",
                 payload={"message": f"Remote control killed {agent_id}", "action": "kill", "agent": agent_id},
                 tags=["control"],
             )
@@ -372,6 +413,7 @@ class IntakeHandler(BaseHTTPRequestHandler):
             event_type="CONTROL_ACTION",
             domain="SYSTEM",
             severity="INFO",
+            source_layer="SYSTEM",
             payload={"message": f"Remote control revived {agent_id}", "action": "revive", "agent": agent_id},
             tags=["control"],
         )
@@ -432,7 +474,8 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO,
                         format="%(asctime)s  %(levelname)-7s  %(message)s",
                         datefmt="%H:%M:%S")
-    IntakeHandler.verifier = Verifier(mock_mode=True)
+    from shared_state import bulletin
+    IntakeHandler.verifier = Verifier(mock_mode=True, bulletin=bulletin)
     server = ThreadingHTTPServer(("0.0.0.0", INTAKE_PORT), IntakeHandler)
     ip = get_local_ip()
     print(f"Intake server  http://{ip}:{INTAKE_PORT}/")

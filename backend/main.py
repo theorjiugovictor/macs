@@ -224,9 +224,9 @@ def main():
         start_ws_server()
         print("  Dashboard: ws://localhost:8765")
 
-    # Start citizen intake server
+    # Start citizen intake server (with bulletin reference for corroboration)
     verifier = Verifier(mock_mode=mock_mode, anthropic_api_key=anthropic_key,
-                        google_api_key=google_key)
+                        google_api_key=google_key, bulletin=bulletin)
     start_intake_server(verifier)
     local_ip = get_local_ip()
     print(f"  Field Reports: http://{local_ip}:{INTAKE_PORT}/")

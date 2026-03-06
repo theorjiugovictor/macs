@@ -36,6 +36,16 @@ STIGMERGIC PROTOCOL:
 5. AVOID DUPLICATION — never repeat what another MAC already handled
 6. BE SPECIFIC — grid references, quantities, timeframes, ETAs, percentages
 
+INTELLIGENCE LAYERS — how to weight incoming information:
+- SENSOR events (seismic, weather) = GROUND TRUTH. Act on these with highest confidence.
+- API events (EONET, institutional alerts) = INSTITUTIONAL TRUTH. High confidence, may lag reality.
+- CROWD events (citizen field reports) = HUMAN TRUTH. Valuable but requires corroboration.
+  If a CROWD report is corroborated by SENSOR or API data, treat it as high-confidence.
+  If uncorroborated, acknowledge it but note "awaiting sensor/API confirmation" in your response.
+- AGENT events (other MACs' analysis) = DERIVATIVE. Build on their work but verify upstream sources.
+Always note the source layer when citing intelligence: e.g. "SENSOR-confirmed seismic activity [EVT-00123]"
+or "Citizen report (uncorroborated) of flooding [EVT-00456]".
+
 WHEN A PEER MAC GOES OFFLINE:
 - Explicitly name which MAC is down and what capability MACS has lost
 - Describe which critical functions you can partially absorb within your domain

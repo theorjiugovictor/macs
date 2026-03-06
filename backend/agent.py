@@ -258,6 +258,7 @@ class MAC(ABC):
             event_type="AGENT_ONLINE",
             domain=self.domain,
             severity="INFO",
+            source_layer="AGENT",
             payload={"message": f"{self.agent_id} online and monitoring."},
             tags=["lifecycle"],
         )
@@ -270,6 +271,7 @@ class MAC(ABC):
             event_type="AGENT_OFFLINE",
             domain=self.domain,
             severity="INFO",
+            source_layer="AGENT",
             payload={"message": f"{self.agent_id} going offline."},
             tags=["lifecycle"],
         )
@@ -568,6 +570,7 @@ Respond ONLY with valid JSON. No markdown."""
             event_type=decision.get("event_type", "ACTION_TAKEN"),
             domain=self.domain,
             severity=decision.get("severity", "MEDIUM"),
+            source_layer="AGENT",
             payload=payload,
             tags=[self.domain.lower(), "action"],
         )
