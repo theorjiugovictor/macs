@@ -563,6 +563,24 @@ Respond ONLY with valid JSON. No markdown."""
             "details": {"mock": True},
         }
 
+    # ── Geo resolution (inherit location from referenced events) ───────────
+
+    def _resolve_geo(self, ref_ids: list) -> Optional[dict]:
+        """Look up referenced events and return the first geo found.
+
+        This lets agent ACTION_TAKEN events carry a location so nearby
+        citizens can be notified that help is being dispatched to their area.
+        """
+        if not ref_ids:
+            return None
+        with bulletin._lock:
+            for evt in reversed(bulletin._events):
+                if evt.id in ref_ids:
+                    geo = evt.payload.get("geo")
+                    if geo and geo.get("lat") and geo.get("lng"):
+                        return geo
+        return None
+
     def _act(self, decision: dict):
         """Post the decision to the bulletin board."""
         if not decision.get("action"):
@@ -575,6 +593,12 @@ Respond ONLY with valid JSON. No markdown."""
         refs = decision.get("references", [])
         if refs:
             payload["references"] = refs
+
+        # Inherit geo from referenced events (citizen reports, sensor data)
+        # so nearby citizens can be notified of the response action.
+        geo = self._resolve_geo(refs)
+        if geo:
+            payload["geo"] = geo
 
         bulletin.post(
             source=self.agent_id,

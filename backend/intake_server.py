@@ -306,6 +306,10 @@ function connectFeedWs(){
          &&(evt.severity==='CRITICAL'||evt.severity==='HIGH')){
         handleProximityNotification(evt);
       }
+      // notify citizens when an agent responds near their location
+      if(evt.source_layer==='AGENT'&&evt.event_type==='ACTION_TAKEN'){
+        handleAgentResponseNotification(evt);
+      }
       // pulse the feed tab
       if(!document.getElementById('panelFeed').classList.contains('active')){
         document.getElementById('feedPulse').classList.add('show');
@@ -553,6 +557,65 @@ function sendNotification(report){
     n.onclick=function(){window.focus();showTab('feed');loadFeed();n.close()};
     // Auto-dismiss after 15s
     setTimeout(function(){n.close()},15000);
+  }catch(e){}
+}
+
+// ── Agent Response Notifications (help is on the way)
+var RESPONSE_LABELS={
+  'MEDIC':'Medical team','LOGISTICS':'Supply convoy','POWER':'Power crew',
+  'COMMS':'Comms relay','EVAC':'Evacuation unit'
+};
+var RESPONSE_ACTIONS={
+  'MEDICAL':'Medical response dispatched to your area',
+  'LOGISTICS':'Supply delivery being routed to your area',
+  'POWER':'Power restoration crew en route',
+  'COMMS':'Communications being restored in your area',
+  'EVACUATION':'Evacuation assistance headed to your area'
+};
+
+function handleAgentResponseNotification(evt){
+  if(!notifEnabled)return;
+  var p=evt.payload||{};
+  var geo=p.geo;
+  if(!geo||!geo.lat||!geo.lng)return; // only notify if agent action has a location
+  if(userLat===null)return;
+  var dist=haversineKm(userLat,userLng,geo.lat,geo.lng);
+  if(dist>NOTIFY_RADIUS_KM)return; // too far
+  sendResponseNotification({
+    id:evt.id,
+    agent:evt.source,
+    domain:evt.domain,
+    severity:evt.severity,
+    message:(p.message||'').substring(0,150),
+    distance:dist
+  });
+}
+
+function sendResponseNotification(info){
+  if(!notifEnabled)return;
+  var label=RESPONSE_LABELS[info.agent]||info.agent;
+  var action=RESPONSE_ACTIONS[info.domain]||'Response in progress near you';
+  var distStr=info.distance<1
+    ? Math.round(info.distance*1000)+'m away'
+    : info.distance.toFixed(1)+'km away';
+
+  var title='\\u2705 '+label+' responding \\u2014 '+info.domain;
+  var body='\\uD83D\\uDCCD '+distStr+'\\n'
+    +action+'\\n\\n'
+    +info.message.substring(0,100)
+    +'\\n\\n\\u231B Status: Action confirmed \\u2014 help on the way';
+
+  try{
+    var n=new Notification(title,{
+      body:body,
+      icon:'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>\\u2705</text></svg>',
+      vibrate:[100,50,100,50,200,100,300],
+      tag:'macs-response-'+info.id,
+      requireInteraction:true,
+      silent:false
+    });
+    n.onclick=function(){window.focus();showTab('feed');loadFeed();n.close()};
+    setTimeout(function(){n.close()},20000);
   }catch(e){}
 }
 
