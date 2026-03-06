@@ -31,6 +31,8 @@ INTAKE_PORT = 8766
 CONTROL_TOKEN = os.getenv("MACS_CONTROL_TOKEN", "")
 CONTROL_AGENTS = {}
 WORLD_STATE_MGR = None
+PHOTO_STORE = {}         # {evt_id: base64_jpeg_string}
+VALIDATION_STORE = {}    # {evt_id: {reporter_ids: set, count: int}}
 
 # ── HTML ──────────────────────────────────────────────────────────────────────
 
@@ -41,111 +43,407 @@ FORM_HTML = """<!DOCTYPE html>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>MACS Field Report</title>
 <style>
-  *{box-sizing:border-box;margin:0;padding:0}
-  body{background:#0d1117;color:#e5e7eb;font-family:'Courier New',monospace;
-       min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:24px 16px}
-  .header{display:flex;align-items:center;gap:10px;margin-bottom:20px;width:100%;max-width:480px}
-  .logo{font-size:20px;font-weight:800;color:#e5e7eb;letter-spacing:-0.5px}
-  .badge{font-size:10px;padding:2px 8px;border-radius:9999px;background:#052e16;
-         color:#4ade80;border:1px solid #166534;letter-spacing:1px}
-  form{width:100%;max-width:480px;display:flex;flex-direction:column;gap:14px}
-  label{font-size:10px;color:#6b7280;letter-spacing:1px;text-transform:uppercase;
-        display:block;margin-bottom:4px}
-  input,textarea,select{width:100%;background:#111827;border:1px solid #1f2937;
-    border-radius:6px;color:#e5e7eb;font-family:'Courier New',monospace;font-size:14px;
-    padding:10px 12px;outline:none;transition:border-color 0.2s;-webkit-appearance:none}
-  input:focus,textarea:focus,select:focus{border-color:#f97316}
-  textarea{resize:vertical;min-height:130px;line-height:1.5}
-  select option{background:#111827}
-  .btn{background:#f97316;color:#0d1117;border:none;border-radius:6px;padding:14px;
-       font-family:'Courier New',monospace;font-size:13px;font-weight:800;
-       letter-spacing:1px;cursor:pointer;width:100%;transition:background 0.2s}
-  .btn:hover{background:#ea580c}
-  .btn:disabled{background:#374151;color:#6b7280;cursor:not-allowed}
-  .warn{background:#1c0a0a;border:1px solid #7f1d1d;border-radius:6px;
-        padding:10px 12px;font-size:11px;color:#f87171;line-height:1.5}
-  .note{font-size:10px;color:#4b5563;text-align:center;line-height:1.6}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0d1117;color:#e5e7eb;font-family:'Courier New',monospace;
+     min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:16px 12px}
+.hdr{display:flex;align-items:center;gap:10px;width:100%;max-width:520px;margin-bottom:12px}
+.logo{font-size:20px;font-weight:800;color:#e5e7eb;letter-spacing:-0.5px}
+.badge{font-size:10px;padding:2px 8px;border-radius:9999px;background:#052e16;
+       color:#4ade80;border:1px solid #166534;letter-spacing:1px}
+.notif-bar{width:100%;max-width:520px;background:#1a1a2e;border:1px solid #16213e;
+           border-radius:8px;padding:10px 14px;margin-bottom:12px;display:flex;
+           align-items:center;gap:10px;font-size:11px;cursor:pointer;transition:all .2s}
+.notif-bar:hover{border-color:#f97316}
+.notif-bar .dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.dot-off{background:#6b7280}.dot-on{background:#4ade80;box-shadow:0 0 6px #4ade80}
+.tabs{display:flex;width:100%;max-width:520px;gap:0;margin-bottom:14px}
+.tab{flex:1;padding:10px;text-align:center;font-size:11px;font-weight:700;
+     letter-spacing:1px;cursor:pointer;background:#111827;border:1px solid #1f2937;
+     color:#6b7280;transition:all .2s;text-transform:uppercase;position:relative}
+.tab:first-child{border-radius:6px 0 0 6px}.tab:last-child{border-radius:0 6px 6px 0}
+.tab.active{background:#1f2937;color:#f97316;border-color:#f97316}
+.tab .pulse{position:absolute;top:6px;right:8px;width:8px;height:8px;
+            border-radius:50%;background:#ef4444;display:none}
+.tab .pulse.show{display:block;animation:pulse 1.5s infinite}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(1.4)}}
+.panel{width:100%;max-width:520px;display:none}.panel.active{display:block}
+label{font-size:10px;color:#6b7280;letter-spacing:1px;text-transform:uppercase;
+      display:block;margin-bottom:4px}
+input,textarea,select{width:100%;background:#111827;border:1px solid #1f2937;
+  border-radius:6px;color:#e5e7eb;font-family:'Courier New',monospace;font-size:14px;
+  padding:10px 12px;outline:none;transition:border-color 0.2s;-webkit-appearance:none}
+input:focus,textarea:focus,select:focus{border-color:#f97316}
+textarea{resize:vertical;min-height:110px;line-height:1.5}
+select option{background:#111827}
+.field{margin-bottom:14px}
+.btn{background:#f97316;color:#0d1117;border:none;border-radius:6px;padding:14px;
+     font-family:'Courier New',monospace;font-size:13px;font-weight:800;
+     letter-spacing:1px;cursor:pointer;width:100%;transition:background 0.2s}
+.btn:hover{background:#ea580c}
+.btn:disabled{background:#374151;color:#6b7280;cursor:not-allowed}
+.warn{background:#1c0a0a;border:1px solid #7f1d1d;border-radius:6px;
+      padding:10px 12px;font-size:11px;color:#f87171;line-height:1.5;margin-bottom:14px}
+.note{font-size:10px;color:#4b5563;text-align:center;line-height:1.6;margin-top:12px}
+.photo-area{border:2px dashed #1f2937;border-radius:8px;padding:16px;text-align:center;
+            cursor:pointer;transition:border-color .2s;margin-bottom:14px;position:relative}
+.photo-area:hover{border-color:#f97316}
+.photo-area img{max-width:100%;max-height:200px;border-radius:6px;margin-top:8px}
+.photo-area .ph-label{color:#6b7280;font-size:12px}
+.photo-area .ph-icon{font-size:32px;margin-bottom:6px}
+.photo-remove{position:absolute;top:6px;right:8px;background:#7f1d1d;color:#fff;
+              border:none;border-radius:50%;width:24px;height:24px;cursor:pointer;
+              font-size:14px;line-height:24px;display:none}
+/* Feed */
+.feed-empty{text-align:center;padding:40px 16px;color:#4b5563;font-size:12px}
+.report-card{background:#111827;border:1px solid #1f2937;border-radius:8px;
+             padding:14px;margin-bottom:10px;transition:border-color .2s}
+.report-card.needs-val{border-color:#f59e0b;animation:glow 2s infinite}
+@keyframes glow{0%,100%{box-shadow:none}50%{box-shadow:0 0 8px rgba(249,115,22,.2)}}
+.rc-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.rc-id{font-size:10px;color:#6b7280}.rc-domain{font-size:11px;font-weight:700;
+  padding:2px 8px;border-radius:9999px;letter-spacing:.5px}
+.d-MEDICAL{background:#1a0a0a;color:#f87171;border:1px solid #7f1d1d}
+.d-LOGISTICS{background:#0a1a1a;color:#5eead4;border:1px solid #115e59}
+.d-POWER{background:#1a1a0a;color:#fbbf24;border:1px solid #78350f}
+.d-COMMS{background:#0a0a1a;color:#818cf8;border:1px solid #3730a3}
+.d-EVACUATION{background:#0d1a0a;color:#86efac;border:1px solid #166534}
+.d-SYSTEM{background:#111;color:#9ca3af;border:1px solid #374151}
+.rc-msg{font-size:12px;line-height:1.6;color:#d1d5db;margin-bottom:8px}
+.rc-photo{width:100%;max-height:180px;object-fit:cover;border-radius:6px;margin-bottom:8px}
+.rc-meta{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px;font-size:10px}
+.rc-meta span{padding:2px 6px;border-radius:4px}
+.conf-high{background:#052e16;color:#4ade80}.conf-med{background:#1c1a05;color:#fbbf24}
+.conf-low{background:#1c0a0a;color:#f87171}
+.corr-yes{background:#052e16;color:#4ade80}.corr-no{background:#1c0a0a;color:#f87171}
+.val-badge{background:#1f2937;color:#e5e7eb}
+.needs-tag{background:#78350f;color:#fbbf24;font-weight:700;animation:pulse 1.5s infinite}
+.sev-CRITICAL{color:#ef4444}.sev-HIGH{color:#f59e0b}.sev-MEDIUM{color:#60a5fa}.sev-LOW{color:#9ca3af}
+.validate-btn{width:100%;padding:10px;border-radius:6px;font-family:'Courier New',monospace;
+              font-size:12px;font-weight:700;cursor:pointer;letter-spacing:.5px;
+              transition:all .2s;border:1px solid #166534;background:#052e16;color:#4ade80}
+.validate-btn:hover{background:#166534;color:#fff}
+.validate-btn:disabled{background:#1f2937;color:#4b5563;border-color:#374151;cursor:default}
+.validate-btn.done{background:#166534;color:#fff;border-color:#4ade80}
+.success-overlay{position:fixed;inset:0;background:rgba(0,0,0,.85);display:flex;
+                 flex-direction:column;align-items:center;justify-content:center;
+                 z-index:100;padding:24px;text-align:center}
+.success-overlay .big{font-size:56px;margin-bottom:16px}
+.success-overlay .title{font-size:18px;font-weight:800;color:#4ade80;margin-bottom:8px}
+.success-overlay .detail{font-size:12px;color:#6b7280;line-height:1.8}
+.success-overlay a{color:#f97316;font-size:12px;text-decoration:none;margin-top:24px;display:block}
 </style>
 </head>
 <body>
-<div class="header">
+<div class="hdr">
   <div class="logo">&#x2B21; MACS</div>
   <div class="badge">FIELD REPORT</div>
 </div>
 
-<form id="f">
-  <div class="warn">
-    &#9888; Submit only verified field observations.
-    False reports waste emergency resources.
-  </div>
+<div class="notif-bar" id="notifBar" onclick="toggleNotif()">
+  <div class="dot dot-off" id="notifDot"></div>
+  <span id="notifText">&#x1F514; Enable live alerts to validate nearby reports</span>
+</div>
 
-  <div>
-    <label>What are you observing? *</label>
-    <textarea id="msg" placeholder="Describe what you see &#8212; casualties, blocked routes,
-infrastructure damage, missing services, civilian needs..." required></textarea>
-  </div>
+<div class="tabs">
+  <div class="tab active" onclick="showTab('submit')" id="tabSubmit">&#x1F4DD; Submit</div>
+  <div class="tab" onclick="showTab('feed')" id="tabFeed">&#x1F4E1; Live Feed <span class="pulse" id="feedPulse"></span></div>
+</div>
 
-  <div>
-    <label>Location (optional)</label>
-    <input type="text" id="loc" placeholder="Grid ref, street name, landmark...">
-  </div>
+<!-- ── SUBMIT PANEL ─────────────────────────────────────────── -->
+<div class="panel active" id="panelSubmit">
+  <form id="f">
+    <div class="warn">&#9888; Submit only verified field observations. False reports waste emergency resources.</div>
 
-  <div>
-    <label>Urgency</label>
-    <select id="urg">
-      <option value="UNKNOWN">Unknown / not sure</option>
-      <option value="LOW">Low &#8212; informational</option>
-      <option value="MEDIUM">Medium &#8212; needs attention soon</option>
-      <option value="HIGH">High &#8212; urgent response needed</option>
-      <option value="CRITICAL">Critical &#8212; immediate life threat</option>
-    </select>
-  </div>
+    <div class="photo-area" id="photoArea" onclick="document.getElementById('photoInput').click()">
+      <div class="ph-icon">&#x1F4F7;</div>
+      <div class="ph-label">Tap to add photo / video evidence</div>
+      <img id="photoPreview" style="display:none">
+      <button type="button" class="photo-remove" id="photoRemove" onclick="removePhoto(event)">&#x2715;</button>
+      <input type="file" id="photoInput" accept="image/*,video/*" capture="environment"
+             style="display:none" onchange="handlePhoto(this)">
+    </div>
 
-  <button class="btn" type="submit" id="btn">SUBMIT FIELD REPORT &#8594;</button>
+    <div class="field">
+      <label>What are you observing? *</label>
+      <textarea id="msg" placeholder="Describe what you see &#8212; casualties, blocked routes, infrastructure damage, missing services..." required></textarea>
+    </div>
+    <div class="field">
+      <label>Location (auto-detected or type manually)</label>
+      <input type="text" id="loc" placeholder="Detecting GPS...">
+    </div>
+    <div class="field">
+      <label>Urgency</label>
+      <select id="urg">
+        <option value="UNKNOWN">Unknown / not sure</option>
+        <option value="LOW">Low &#8212; informational</option>
+        <option value="MEDIUM">Medium &#8212; needs attention soon</option>
+        <option value="HIGH">High &#8212; urgent response needed</option>
+        <option value="CRITICAL">Critical &#8212; immediate life threat</option>
+      </select>
+    </div>
+    <button class="btn" type="submit" id="btn">SUBMIT FIELD REPORT &#8594;</button>
+    <div class="note">Reports are AI-verified and cross-referenced against sensor data.<br>
+    Other citizens nearby can corroborate your report to boost confidence.</div>
+  </form>
+</div>
 
-  <div class="note">
-    Reports are AI-verified before reaching response agents.<br>
-    Your submission is anonymous.
-  </div>
-</form>
+<!-- ── FEED PANEL ───────────────────────────────────────────── -->
+<div class="panel" id="panelFeed">
+  <div id="feedList"><div class="feed-empty">Loading reports...</div></div>
+</div>
 
 <script>
+// ── Reporter ID (anonymous, persistent per device)
+var RID = localStorage.getItem('macs_rid');
+if(!RID){RID='R-'+Math.random().toString(36).substr(2,8);localStorage.setItem('macs_rid',RID)}
+var validated = JSON.parse(localStorage.getItem('macs_validated')||'{}');
+var seenIds = new Set();
+var notifEnabled = false;
+var photoB64 = null;
+var photoMime = null;
+var geoLat = null, geoLng = null;
+
+// ── Geolocation
+if(navigator.geolocation){
+  navigator.geolocation.getCurrentPosition(function(p){
+    geoLat=p.coords.latitude; geoLng=p.coords.longitude;
+    document.getElementById('loc').placeholder=
+      'GPS: '+geoLat.toFixed(4)+', '+geoLng.toFixed(4)+' (or type manually)';
+  }, function(){}, {enableHighAccuracy:true, timeout:5000});
+}
+
+// ── Tabs
+function showTab(t){
+  document.getElementById('panelSubmit').classList.toggle('active',t==='submit');
+  document.getElementById('panelFeed').classList.toggle('active',t==='feed');
+  document.getElementById('tabSubmit').classList.toggle('active',t==='submit');
+  document.getElementById('tabFeed').classList.toggle('active',t==='feed');
+  if(t==='feed'){document.getElementById('feedPulse').classList.remove('show');loadFeed();}
+}
+
+// ── Photo handling
+function handlePhoto(input){
+  var file=input.files[0]; if(!file)return;
+  photoMime=file.type;
+  if(file.type.startsWith('video/')){
+    // For video, just store the file reference — we'll send a thumbnail
+    var video=document.createElement('video');
+    video.preload='metadata';
+    video.onloadedmetadata=function(){
+      video.currentTime=1;
+    };
+    video.onseeked=function(){
+      var c=document.createElement('canvas');
+      c.width=Math.min(video.videoWidth,640);
+      c.height=c.width*(video.videoHeight/video.videoWidth);
+      c.getContext('2d').drawImage(video,0,0,c.width,c.height);
+      photoB64=c.toDataURL('image/jpeg',0.6);
+      showPreview(photoB64);
+    };
+    video.src=URL.createObjectURL(file);
+  } else {
+    var reader=new FileReader();
+    reader.onload=function(e){
+      var img=new Image();
+      img.onload=function(){
+        var c=document.createElement('canvas');
+        var maxW=800;
+        var w=img.width,h=img.height;
+        if(w>maxW){h=h*(maxW/w);w=maxW}
+        c.width=w;c.height=h;
+        c.getContext('2d').drawImage(img,0,0,w,h);
+        photoB64=c.toDataURL('image/jpeg',0.55);
+        showPreview(photoB64);
+      };
+      img.src=e.target.result;
+    };
+    reader.readAsDataURL(file);
+  }
+}
+function showPreview(src){
+  var p=document.getElementById('photoPreview');
+  p.src=src;p.style.display='block';
+  document.getElementById('photoRemove').style.display='block';
+  document.querySelector('.ph-icon').style.display='none';
+  document.querySelector('.ph-label').textContent='Photo attached \\u2714';
+}
+function removePhoto(e){
+  e.stopPropagation();photoB64=null;photoMime=null;
+  document.getElementById('photoPreview').style.display='none';
+  document.getElementById('photoRemove').style.display='none';
+  document.getElementById('photoInput').value='';
+  document.querySelector('.ph-icon').style.display='block';
+  document.querySelector('.ph-label').textContent='Tap to add photo / video evidence';
+}
+
+// ── Notifications
+function toggleNotif(){
+  if(notifEnabled){notifEnabled=false;updateNotifUI();return}
+  if(!('Notification' in window)){alert('Notifications not supported');return}
+  Notification.requestPermission().then(function(p){
+    notifEnabled=(p==='granted');updateNotifUI();
+  });
+}
+function updateNotifUI(){
+  var dot=document.getElementById('notifDot');
+  var txt=document.getElementById('notifText');
+  if(notifEnabled){
+    dot.className='dot dot-on';
+    txt.innerHTML='\\u2705 Live alerts ON \\u2014 you\\'ll be notified of nearby reports';
+  } else {
+    dot.className='dot dot-off';
+    txt.innerHTML='\\uD83D\\uDD14 Enable live alerts to validate nearby reports';
+  }
+}
+function sendNotification(report){
+  if(!notifEnabled)return;
+  try{
+    var n=new Notification('\\uD83D\\uDEA8 MACS: New '+report.domain+' report',{
+      body:report.message.substring(0,100)+'...',
+      icon:'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>\\u2B21</text></svg>',
+      vibrate:[200,100,200],
+      tag:'macs-'+report.id,
+      requireInteraction:true
+    });
+    n.onclick=function(){window.focus();showTab('feed');n.close()};
+  }catch(e){}
+}
+
+// ── Form submission
 document.getElementById('f').addEventListener('submit',async function(e){
   e.preventDefault();
   var btn=document.getElementById('btn');
-  btn.textContent='VERIFYING…';btn.disabled=true;
+  btn.textContent='VALIDATING...';btn.disabled=true;
+  var payload={
+    message:document.getElementById('msg').value,
+    location:document.getElementById('loc').value||undefined,
+    urgency:document.getElementById('urg').value,
+    reporter_id:RID
+  };
+  if(geoLat!==null){payload.lat=geoLat;payload.lng=geoLng}
+  if(photoB64){payload.photo=photoB64}
   try{
-    var r=await fetch('/report',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({
-        message:document.getElementById('msg').value,
-        location:document.getElementById('loc').value,
-        urgency:document.getElementById('urg').value
-      })
-    });
+    var r=await fetch('/report',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(payload)});
     var d=await r.json();
     if(d.accepted){
-      document.body.innerHTML='<div style="text-align:center;padding:48px 24px;max-width:480px;margin:auto">'
-        +'<div style="font-size:56px;margin-bottom:16px">✓</div>'
-        +'<div style="font-size:18px;font-weight:800;color:#4ade80;margin-bottom:12px">REPORT ACCEPTED</div>'
-        +'<div style="font-size:12px;color:#6b7280;line-height:1.8">'
+      var overlay=document.createElement('div');
+      overlay.className='success-overlay';
+      overlay.innerHTML='<div class="big">\\u2713</div>'
+        +'<div class="title">REPORT ACCEPTED</div>'
+        +'<div class="detail">'
         +'Domain: <span style="color:#e5e7eb">'+d.domain+'</span><br>'
-        +'Severity: <span style="color:#f59e0b">'+d.severity+'</span><br>'
-        +'Confidence: <span style="color:#60a5fa">'+(Math.round(d.confidence*100))+'%</span>'
+        +'Severity: <span class="sev-'+d.severity+'">'+d.severity+'</span><br>'
+        +'Confidence: <span style="color:#60a5fa">'+Math.round(d.confidence*100)+'%</span><br>'
+        +(d.corroboration_score>0?'Corroboration: <span style="color:#4ade80">'+Math.round(d.corroboration_score*100)+'%</span><br>':'')
+        +(d.event_id?'Event ID: <span style="color:#9ca3af">'+d.event_id+'</span>':'')
         +'</div>'
-        +'<div style="margin-top:28px">'
-        +'<a href="/" style="color:#f97316;font-size:12px;text-decoration:none">← Submit another report</a>'
-        +'</div></div>';
-    }else{
-      btn.textContent='SUBMIT FIELD REPORT →';btn.disabled=false;
+        +'<a href="javascript:void(0)" onclick="this.parentElement.remove()">\\u2190 Submit another report</a>'
+        +'<a href="javascript:void(0)" onclick="this.parentElement.remove();showTab(\\'feed\\')" style="margin-top:8px">'
+        +'View Live Feed \\u2192</a>';
+      document.body.appendChild(overlay);
+      document.getElementById('f').reset();photoB64=null;removePhoto({stopPropagation:function(){}});
+    } else {
+      btn.textContent='SUBMIT FIELD REPORT \\u2192';btn.disabled=false;
       alert('Not accepted: '+(d.reason||'Please add more detail and try again.'));
     }
   }catch(err){
-    btn.textContent='SUBMIT FIELD REPORT →';btn.disabled=false;
+    btn.textContent='SUBMIT FIELD REPORT \\u2192';btn.disabled=false;
     alert('Connection error. Please try again.');
   }
 });
+
+// ── Live Feed
+var feedTimer=null;
+async function loadFeed(){
+  try{
+    var r=await fetch('/reports');
+    var reports=await r.json();
+    var container=document.getElementById('feedList');
+    if(!reports.length){container.innerHTML='<div class="feed-empty">No citizen reports yet. Be the first! \\uD83D\\uDCE1</div>';return}
+    var html='';
+    reports.forEach(function(rpt){
+      var p=rpt.payload||{};
+      var conf=Math.round((p.confidence||0)*100);
+      var confClass=conf>=80?'conf-high':conf>=60?'conf-med':'conf-low';
+      var corrScore=p.corroboration_score||0;
+      var corrClass=corrScore>0.3?'corr-yes':'corr-no';
+      var needsVal=conf<80&&corrScore<0.3;
+      var valCount=rpt.validation_count||0;
+      var isValidated=validated[rpt.id]||false;
+      // Notification for new reports
+      if(!seenIds.has(rpt.id)&&rpt.source!=='FIELD_REPORT_'+RID){
+        seenIds.add(rpt.id);
+        if(seenIds.size>1)sendNotification({id:rpt.id,domain:rpt.domain,message:p.message||''});
+      } else { seenIds.add(rpt.id); }
+      html+='<div class="report-card'+(needsVal?' needs-val':'')+'">'
+        +'<div class="rc-head">'
+        +'<span class="rc-id">'+rpt.id+' \\u2022 '+new Date(rpt.timestamp*1000).toLocaleTimeString()+'</span>'
+        +'<span class="rc-domain d-'+rpt.domain+'">'+rpt.domain+'</span>'
+        +'</div>';
+      if(rpt.has_photo){html+='<img class="rc-photo" src="/photo/'+rpt.id+'" loading="lazy">';}
+      html+='<div class="rc-msg">'+escHtml(p.message||p.original||'')+'</div>'
+        +'<div class="rc-meta">'
+        +'<span class="'+confClass+'">\\uD83C\\uDFAF '+conf+'% confidence</span>'
+        +'<span class="sev-'+rpt.severity+'">\\u26A0 '+rpt.severity+'</span>'
+        +(corrScore>0?'<span class="'+corrClass+'">\\uD83D\\uDD17 Corroborated '+Math.round(corrScore*100)+'%</span>':'')
+        +'<span class="val-badge">\\u2705 '+valCount+' validation'+(valCount!==1?'s':'')+'</span>'
+        +(needsVal?'<span class="needs-tag">\\uD83D\\uDC41 NEEDS VALIDATION</span>':'')
+        +'</div>';
+      if(p.location&&p.location!=='unknown'){html+='<div style="font-size:10px;color:#6b7280;margin-bottom:8px">\\uD83D\\uDCCD '+escHtml(p.location)+'</div>';}
+      if(!isValidated){
+        html+='<button class="validate-btn" onclick="validateReport(\\''+rpt.id+'\\',this)">'
+          +'\\u2714 I CAN CONFIRM THIS REPORT</button>';
+      } else {
+        html+='<button class="validate-btn done" disabled>\\u2714 YOU VALIDATED THIS</button>';
+      }
+      html+='</div>';
+    });
+    container.innerHTML=html;
+  }catch(e){console.error('Feed error',e)}
+}
+
+async function validateReport(id,btn){
+  btn.disabled=true;btn.textContent='Validating...';
+  try{
+    var r=await fetch('/validate',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({report_id:id,reporter_id:RID})});
+    var d=await r.json();
+    if(d.ok){
+      validated[id]=true;localStorage.setItem('macs_validated',JSON.stringify(validated));
+      btn.className='validate-btn done';btn.textContent='\\u2714 YOU VALIDATED THIS';
+      loadFeed();
+    } else {btn.textContent='\\u2714 I CAN CONFIRM THIS REPORT';btn.disabled=false;
+            if(d.reason)alert(d.reason)}
+  }catch(e){btn.textContent='\\u2714 I CAN CONFIRM THIS REPORT';btn.disabled=false}
+}
+
+function escHtml(s){var d=document.createElement('div');d.textContent=s;return d.innerHTML}
+
+// Auto-refresh feed every 4s when visible
+setInterval(function(){
+  if(document.getElementById('panelFeed').classList.contains('active'))loadFeed();
+  else checkNewReports();
+},4000);
+
+var lastKnownCount=0;
+async function checkNewReports(){
+  try{
+    var r=await fetch('/reports');var d=await r.json();
+    if(d.length>lastKnownCount&&lastKnownCount>0){
+      document.getElementById('feedPulse').classList.add('show');
+      // Notify for each new report
+      for(var i=lastKnownCount;i<d.length;i++){
+        if(!seenIds.has(d[i].id)){
+          seenIds.add(d[i].id);
+          sendNotification({id:d[i].id,domain:d[i].domain,message:(d[i].payload||{}).message||''});
+        }
+      }
+    }
+    lastKnownCount=d.length;
+  }catch(e){}
+}
+checkNewReports();
 </script>
 </body>
 </html>"""
@@ -281,6 +579,34 @@ class IntakeHandler(BaseHTTPRequestHandler):
                 "timestamp": now,
             })
 
+        elif path == "/reports":
+            # Return CITIZEN_INTEL events enriched with photo + validation data
+            events = [e for e in bulletin.read_since() if e.event_type == "CITIZEN_INTEL"]
+            result = []
+            for evt in reversed(events):  # newest first
+                d = asdict(evt)
+                d["has_photo"] = evt.id in PHOTO_STORE
+                votes = VALIDATION_STORE.get(evt.id, {})
+                d["validation_count"] = votes.get("count", 0)
+                result.append(d)
+            self._json(result)
+
+        elif path.startswith("/photo/"):
+            evt_id = path.split("/photo/", 1)[1]
+            b64 = PHOTO_STORE.get(evt_id)
+            if b64:
+                # Strip data URL prefix if present
+                if "," in b64:
+                    b64 = b64.split(",", 1)[1]
+                import base64
+                try:
+                    img_bytes = base64.b64decode(b64)
+                    self._send(200, "image/jpeg", img_bytes)
+                except Exception:
+                    self._send(404, "text/plain", b"Invalid photo data")
+            else:
+                self._send(404, "text/plain", b"No photo for this event")
+
         else:
             self._send(404, "text/plain", b"Not found")
 
@@ -291,6 +617,10 @@ class IntakeHandler(BaseHTTPRequestHandler):
 
         if path == "/control":
             self._handle_control()
+            return
+
+        if path == "/validate":
+            self._handle_validate()
             return
 
         if path != "/report":
@@ -308,6 +638,10 @@ class IntakeHandler(BaseHTTPRequestHandler):
         message  = str(data.get("message", "")).strip()
         location = str(data.get("location", "")).strip()
         urgency  = str(data.get("urgency", "UNKNOWN")).upper()
+        photo    = data.get("photo")  # base64 jpeg or None
+        reporter = str(data.get("reporter_id", "")).strip()
+        lat      = data.get("lat")
+        lng      = data.get("lng")
 
         if not message:
             self._json({"accepted": False, "reason": "Empty message"})
@@ -332,7 +666,7 @@ class IntakeHandler(BaseHTTPRequestHandler):
             if SEVERITY_ORDER[urgency] < SEVERITY_ORDER.get(ai_sev, 5):
                 ai_sev = urgency
 
-        bulletin.post(
+        event = bulletin.post(
             source="FIELD_REPORT",
             event_type="CITIZEN_INTEL",
             domain=result["domain"],
@@ -346,18 +680,28 @@ class IntakeHandler(BaseHTTPRequestHandler):
                 "verified_by": "MACS-VALIDATOR",
                 "corroborated_by": result.get("corroborated_by", []),
                 "corroboration_score": result.get("corroboration_score", 0),
+                "has_photo": bool(photo),
+                "reporter_id": reporter or "anonymous",
+                "geo": {"lat": lat, "lng": lng} if lat and lng else None,
             },
             tags=["citizen", "field-report", "verified"],
         )
+
+        # Store photo separately (keep payload lightweight)
+        if photo and event:
+            PHOTO_STORE[event.id] = photo
+
         logger.info(
             f"[INTAKE] Accepted {result['domain']}/{ai_sev} "
             f"conf={result['confidence']}: {result['message'][:60]}"
         )
         self._json({
             "accepted":   True,
+            "event_id":   event.id if event else None,
             "domain":     result["domain"],
             "severity":   ai_sev,
             "confidence": result["confidence"],
+            "corroboration_score": result.get("corroboration_score", 0),
         })
 
     def _handle_control(self):
@@ -418,6 +762,65 @@ class IntakeHandler(BaseHTTPRequestHandler):
             tags=["control"],
         )
         self._json({"ok": True, "action": "revive", "agent": agent_id})
+
+    def _handle_validate(self):
+        """Citizen cross-validation — another person confirms a report."""
+        length = int(self.headers.get("Content-Length", 0))
+        body = self.rfile.read(length)
+        try:
+            data = json.loads(body or b"{}")
+        except json.JSONDecodeError:
+            self._json({"ok": False, "reason": "Invalid JSON"})
+            return
+
+        report_id = str(data.get("report_id", "")).strip()
+        reporter_id = str(data.get("reporter_id", "")).strip()
+
+        if not report_id or not reporter_id:
+            self._json({"ok": False, "reason": "Missing report_id or reporter_id"})
+            return
+
+        # Check the report exists
+        found = [e for e in bulletin.read_since() if e.id == report_id and e.event_type == "CITIZEN_INTEL"]
+        if not found:
+            self._json({"ok": False, "reason": f"Report {report_id} not found"})
+            return
+
+        # Check for double-validation
+        if report_id not in VALIDATION_STORE:
+            VALIDATION_STORE[report_id] = {"reporters": set(), "count": 0}
+        store = VALIDATION_STORE[report_id]
+
+        if reporter_id in store["reporters"]:
+            self._json({"ok": False, "reason": "You already validated this report"})
+            return
+
+        store["reporters"].add(reporter_id)
+        store["count"] += 1
+
+        # Post a CITIZEN_VALIDATION event to the bulletin
+        bulletin.post(
+            source="CROWD_VALIDATOR",
+            event_type="CITIZEN_VALIDATION",
+            domain=found[0].domain,
+            severity="INFO",
+            source_layer="CROWD",
+            payload={
+                "message": f"Citizen corroboration for {report_id} — "
+                           f"now {store['count']} independent validation(s)",
+                "validated_report": report_id,
+                "validator_id": reporter_id,
+                "total_validations": store["count"],
+            },
+            tags=["citizen", "validation", "crowd-corroboration"],
+        )
+
+        logger.info(f"[VALIDATE] {reporter_id} validated {report_id} (total: {store['count']})")
+        self._json({
+            "ok": True,
+            "report_id": report_id,
+            "validation_count": store["count"],
+        })
 
     def do_OPTIONS(self):
         self.send_response(200)
