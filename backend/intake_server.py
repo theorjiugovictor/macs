@@ -467,7 +467,7 @@ function toggleNotif(){
       startGeoWatch();
       // Show confirmation notification
       try{new Notification('\\u2705 MACS Alerts Active',{
-        body:'You\'ll be notified when crisis reports appear within '+NOTIFY_RADIUS_KM+'km of you.',
+        body:"You will be notified when crisis reports appear within "+NOTIFY_RADIUS_KM+"km of your location.",
         icon:'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>\\u2B21</text></svg>',
         tag:'macs-confirm'
       })}catch(e){}
